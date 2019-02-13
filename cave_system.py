@@ -834,7 +834,14 @@ class Viewer():
                self.lines[y+b][x-b] = ":"
                self.lines[y-b][x+b] = ":"
                self.lines[y-b][x-b] = ":"
-            
+               
+    def rectangle_hole(self, x, y, xlength, ylength):
+        """fills a rectangle-shaped hole with '.' into self.lines,
+           upper left corner is x,y"""
+        for y2 in range(y,y+ylength):
+            for x2 in range(x,x+xlength):
+                self.lines[y2][x2] = "."
+        
             
     def generate_level(self, xtiles, ytiles):
         self.lines = []
@@ -845,9 +852,8 @@ class Viewer():
             self.lines.append(line)
         #print(self.lines) # level is in self.lines
         # eckiger raum
-        for y in range(16, 26):
-            for x in range(10, 20):
-                self.lines[y][x] = "."
+        
+        
         
         self.round_hole(40,9)
         
