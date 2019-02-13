@@ -538,7 +538,7 @@ class Player(VectorSprite):
 class Tile(VectorSprite):
     
     def _overwrite_parameters(self):
-        pass
+        self._layer = 3 # so that player will be over Tile, not below it
     
     
     def create_image(self):
@@ -819,21 +819,16 @@ class Viewer():
         self.background.convert()
         
         
-    def round_hole(self, x, y, r=5):
+    def round_hole(self, mx, my, r=5):
         """fills a circle-shaped hole with '.' into self.lines,
-           center is x,y,
-           radius is r"""
-        for a in range(r):
-            self.lines[y][x+a] = "."
-            self.lines[y][x-a] = "."
-            self.lines[y+a][x] = "."
-            self.lines[y-a][x] = "."
-            b = a-2
-            if b > 0:
-               self.lines[y+b][x+b] = ":"
-               self.lines[y+b][x-b] = ":"
-               self.lines[y-b][x+b] = ":"
-               self.lines[y-b][x-b] = ":"
+           center is (mx,my) radius is r
+        """
+        for y in range(my-r, my+r):
+            for x in range(mx-r, mx+r):
+                distance = ( (mx-x)**2 + (my-y)**2 ) ** 0.5
+                if round(distance,0) < r:
+                    self.lines[y][x] = "."
+
                
     def rectangle_hole(self, x, y, xlength, ylength):
         """fills a rectangle-shaped hole with '.' into self.lines,
@@ -855,7 +850,7 @@ class Viewer():
         
         
         
-        self.round_hole(40,9)
+        self.round_hole(40,9, 8)
         
                 
         
