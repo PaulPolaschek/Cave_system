@@ -950,21 +950,30 @@ class Viewer():
                             return
                         elif text == "rockets":
                             if Game.gold < Game.price:
-                                Flytext(500, 500, text = "you need 10 gold")
+                                Flytext(500, 500, text = "you need {} gold".format(Game.price))
                                 break
                             Game.gold -= Game.price
                             Game.rockets += 1
                             t = "Rockets now: {}".format(Game.rockets)
                             Flytext(500, 500, text=t)
                         elif text == "hitpoints":
+                            if Game.gold < Game.price:
+                                Flytext(500, 500, text = "you need {} gold".format(Game.price))
+                                break
                             Game.playerhitpoints += 1
                             t = "Playerhitpoints now: {}".format(Game.playerhitpoints)
                             Flytext(500, 500, text=t)
                         elif text == "speed":
+                            if Game.gold < Game.price:
+                                Flytext(500, 500, text = "you need {} gold".format(Game.price))
+                                break
                             Game.playerspeed += 1
                             t = "Playerspeed now: {}".format(Game.playerspeed)
                             Flytext(500, 500, text=t)
                         elif text == "rocketspeed":
+                            if Game.gold < Game.price:
+                                Flytext(500, 500, text = "you need {} gold".format(Game.price))
+                                break
                             Game.rocketspeed += 1
                             t = "Rocketspeed now: {}".format(Game.rocketspeed)
                             Flytext(500, 500, text=t)
@@ -1197,3 +1206,4 @@ class Viewer():
 
 if __name__ == '__main__':
     Viewer(1430,800).run() # try Viewer(800,600).run()
+
