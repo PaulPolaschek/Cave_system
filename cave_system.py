@@ -833,6 +833,8 @@ class Viewer():
     def rectangle_hole(self, x, y, xlength, ylength):
         """fills a rectangle-shaped hole with '.' into self.lines,
            upper left corner is x,y"""
+        x -= xlength
+        y -= ylength
         for y2 in range(y,y+ylength):
             for x2 in range(x,x+xlength):
                 self.lines[y2][x2] = "."
@@ -846,11 +848,14 @@ class Viewer():
                 line.append("B")
             self.lines.append(line)
         #print(self.lines) # level is in self.lines
-        # eckiger raum
         
+        for _ in range(15):
+            self.rectangle_hole(random.randint(0, len(line)), random.randint(0, len(self.lines)), random.randint(5,10), random.randint(5,10))
         
+        for _ in range(15):
+            self.round_hole(random.randint(5, len(line)-5), random.randint(5, len(self.lines)-5), random.randint(2,5))
         
-        self.round_hole(40,9, 8)
+        #self.round_hole(40,9, 8)
         
                 
         
