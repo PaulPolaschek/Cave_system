@@ -542,9 +542,9 @@ class Tile(VectorSprite):
     
     
     def create_image(self):
-        self.image = pygame.Surface((20,20))
+        self.image = pygame.Surface((Game.tilesize,Game.tilesize))
         self.image.fill(self.color)
-        pygame.draw.rect(self.image, (250,250,250), (0,0,20,20), 1)
+        pygame.draw.rect(self.image, (250,250,250), (0,0,Game.tilesize,Game.tilesize), 1)
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
         self.image0 = self.image.copy()
@@ -737,7 +737,14 @@ class Rocket(VectorSprite):
 
 class Game():
     
-    menupoints = ["exit","hitpoints","speed","rockets","rocketspeed","increase shootingangle","decrease shootingangle"]
+    menu = []
+    playermenu = ["back","hitpoints","speed","rockets","rocketspeed","increase shootingangle","decrease shootingangle"]
+    mainmenu = ["play", "player1 settings", "level settings", "video settings", "exit game"]
+    levelmenu = ["back", "tile size", "rooms", "holes", "circles", "rects"]
+    videomenu = ["back", "640x400", "800x600", "1024x800", "1280x1024"]
+    tilesizemenu = ["back to level menu", "5", "10", "15", "20", "25", "30"]
+    manymenu = ["back to level menu", "none", "few", "many", "lots"]
+    
     rockets = 1
     playerhitpoints = 100
     playerspeed = 1
@@ -745,30 +752,19 @@ class Game():
     shooting_angle = 20
     gold = 0
     price = 10
+    tilesize = 20
     rocket_range = 200
+    rooms = "many"
+    holes = "many"
+    circles = "none"
+    rects = "none"
     
 
 class Viewer():
     width = 0
     height = 0
-    def movement_indicator(self,vehicle,pygamepos, color=(0,200,0)):
-        #----heading indicator
-        pygame.draw.circle(self.screen,color,pygamepos,100,1)
-        h=pygame.math.Vector2(100,0)
-        h.rotate_ip(-vehicle.angle)
-        target=pygamepos+h
-        target=(int(target.x),int(target.y))
-        pygame.draw.circle(self.screen,(0,128,0),target,3)           
-       
-        if vehicle.move.x ==0 and vehicle.move.y==0:
-            return
-        length=int(vehicle.move.length()/10)
-        length=min(10,length)
-        v=pygame.math.Vector2(100,0)
-        v.rotate_ip(vehicle.move.angle_to(v))
-        target=pygamepos+v
-        pygame.draw.line(self.screen, color, pygamepos,target,length)
-
+    
+    
 
     def __init__(self, width=640, height=400, fps=30):
         """Initialize pygame, window, background, font,...
@@ -792,8 +788,8 @@ class Viewer():
             random.shuffle(self.backgroundfilenames) # remix sort order
         except:
             print("no folder 'data' or no jpg files in it")
-        Viewer.bombchance = 0.015
-        Viewer.rocketchance = 0.001
+        #Viewer.bombchance = 0.015
+        #Viewer.rocketchance = 0.001
         Viewer.wave = 0
         self.age = 0
         # ------ joysticks ----
@@ -803,6 +799,7 @@ class Viewer():
             j.init()
         self.prepare_sprites()
         self.loadbackground()
+        Game.menu = Game.mainmenu[:]
 
     def loadbackground(self):
         
@@ -840,7 +837,9 @@ class Viewer():
                 self.lines[y2][x2] = "."
         
             
-    def generate_level(self, xtiles, ytiles):
+    def generate_level(self):
+        xtiles = (Viewer.width-10) // Game.tilesize
+        ytiles = (Viewer.height-30) // Game.tilesize
         self.lines = []
         for y in range(ytiles):
             line = []
@@ -848,21 +847,34 @@ class Viewer():
                 line.append("B")
             self.lines.append(line)
         #print(self.lines) # level is in self.lines
-        
-        for _ in range(15):
+        howmuch = {"none": 0,
+                   "few" : 5,
+                   "many": 10,
+                   "lots": 15 }
+                
+        # ---- create rectangular room ----
+        for _ in range(howmuch[Game.rooms]):
             self.rectangle_hole(random.randint(0, len(line)), random.randint(0, len(self.lines)), random.randint(5,10), random.randint(5,10))
-        
-        for _ in range(15):
+        # ---- create round room (hole) -------
+        for _ in range(howmuch[Game.holes]):
             self.round_hole(random.randint(5, len(line)-5), random.randint(5, len(self.lines)-5), random.randint(2,5))
         
         #self.round_hole(40,9, 8)
+        # circles
         
+        # rects 
+        
+        self.paint_level()
                 
         
     def paint_level(self):
-          for y, line in enumerate(self.lines):
+         # kill old tiles 
+         for p in self.tilegroup:
+             p.kill()
+         # generate new tiles
+         for y, line in enumerate(self.lines):
               for x, char in enumerate(line):
-                  p = pygame.math.Vector2(x*20 + 10, -y*20 - 30)
+                  p = pygame.math.Vector2(x*Game.tilesize + 10, -y*Game.tilesize - 30)
                   if char == "B":
                       Tile(pos=p, color=(100,100,100))
           #for x in range(10, Viewer.width, 20):
@@ -905,16 +917,39 @@ class Viewer():
         self.mouse4 = Mouse(control="joystick1", color=(255,128,255))
         self.mouse5 = Mouse(control="joystick2", color=(255,255,255))
 
-        xtiles = (Viewer.width-10) // 20
-        ytiles = (Viewer.height-30) // 20
-        self.generate_level(xtiles, ytiles)
-        self.paint_level()
+        #xtiles = (Viewer.width-10) // 20
+        #ytiles = (Viewer.height-30) // 20
+        #self.generate_level(xtiles, ytiles)
+        #self.paint_level()
+        self.generate_level()
         
         #for x in range(20):
         #    EvilMonster(bounce_on_edge=True)
       
+    def draw_spaceship(self):
+        # ellipse arc angle in Radiants
+        start = (90 - Game.shooting_angle) * math.pi / 180
+        end =   (90 + Game.shooting_angle) * math.pi / 180
+        #print(start, end)
+        # shema of ship
+        pygame.draw.polygon(self.screen, (0,0,255), 
+                    [(700, 300), (600, 600),(700, 550), (800, 600)], 3)
+        # bogerl
+        pygame.draw.arc(self.screen, ( 200,200,200), (600,200,200, 200), start, end, 2) 
+        # radien
+        middlevec = pygame.math.Vector2( 700, -300)
+        w = pygame.math.Vector2(120, 0)
+        w.rotate_ip(90 +Game.shooting_angle)
+        v = middlevec + w
+        pygame.draw.line(self.screen, ( 200,200, 200), (700,300), (v.x, -v.y))
+        w = pygame.math.Vector2(120, 0)
+        w.rotate_ip(90- Game.shooting_angle)
+        v = middlevec + w
+        pygame.draw.line(self.screen, ( 200,200, 200), (700,300), (v.x, -v.y))
+            
+    
     def calculate_price(self, cursor):
-        text = Game.menupoints[cursor]
+        text = Game.menu[cursor]
         if text == "exit":
             Game.price = 0
         elif text == "rockets":
@@ -926,10 +961,14 @@ class Viewer():
         elif text == "rocketspeed":
             Game.price = 5
    
-    def menu(self):
+    def menurun(self):
         running = True
         cursor = 0
+        lastmenu = None
         while running:
+            milliseconds = self.clock.tick(self.fps) #
+            seconds = milliseconds / 1000# - self.menudeltatime
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -941,7 +980,7 @@ class Viewer():
                         return
                     if event.key == pygame.K_DOWN:
                         cursor += 1
-                        cursor = min(len(Game.menupoints)-1, cursor)
+                        cursor = min(len(Game.menu)-1, cursor)
                         self.calculate_price(cursor)
                     if event.key == pygame.K_UP:
                         cursor -= 1
@@ -950,9 +989,92 @@ class Viewer():
                         #running = False
                     if event.key == pygame.K_RETURN:
                         #Flytext(500, 500, text=Game.menupoints[cursor])
-                        text = Game.menupoints[cursor]
-                        if text == "exit":
+                        text = Game.menu[cursor]
+                        if text == "play":
                             return
+                        elif text == "exit game":
+                            running = False
+                        elif text == "player1 settings":
+                            Game.menu = Game.playermenu[:]
+                            cursor = 0
+                        elif text == "back":
+                            Game.menu = Game.mainmenu[:]
+                            cursor = 0
+                        elif text == "video settings":
+                            Game.menu = Game.videomenu[:]
+                            cursor = 0
+                        elif text == "level settings":
+                            Game.menu = Game.levelmenu[:]
+                            cursor = 0
+                        elif text == "tile size":
+                            lastmenu = "tile size"
+                            Game.menu = Game.tilesizemenu[:]
+                            cursor = 0
+                        elif text == "rooms":
+                            Game.menu = Game.manymenu[:]
+                            cursor = 0
+                            lastmenu = "rooms"
+                        elif text == "holes":
+                            Game.menu = Game.manymenu[:]
+                            cursor = 0
+                            lastmenu = "holes"
+                        elif text == "circles":
+                            Game.menu = Game.manymenu[:]
+                            cursor = 0
+                            lastmenu = "circles"
+                        elif text == "rects":
+                            Game.menu = Game.manymenu[:]
+                            cursor = 0
+                            lastmenu = "rects"
+                        elif text == "back to level menu":
+                            Game.menu = Game.levelmenu[:]
+                            cursor = 0
+                        elif text == "none":
+                            if lastmenu == "rects":
+                                Game.rects = "none"
+                            elif lastmenu == "circles":
+                                Game.circles = "none"
+                            elif lastmenu == "rooms":
+                                Game.rooms = "none"
+                            elif lastmenu == "holes":
+                                Game.holes = "none"
+                            self.generate_level()
+                        elif text == "few":
+                            if lastmenu == "rects":
+                                Game.rects = "few"
+                            elif lastmenu == "circles":
+                                Game.circles = "few"
+                            elif lastmenu == "rooms":
+                                Game.rooms = "few"
+                            elif lastmenu == "holes":
+                                Game.holes = "few"
+                            self.generate_level()
+                        elif text == "many":
+                            if lastmenu == "rects":
+                                Game.rects = "many"
+                            elif lastmenu == "circles":
+                                Game.circles = "many"
+                            elif lastmenu == "rooms":
+                                Game.rooms = "many"
+                            elif lastmenu == "holes":
+                                Game.holes = "many"
+                            self.generate_level()
+                        elif text == "lots":
+                            if lastmenu == "rects":
+                                Game.rects = "lots"
+                            elif lastmenu == "circles":
+                                Game.circles = "lots"
+                            elif lastmenu == "rooms":
+                                Game.rooms = "lots"
+                            elif lastmenu == "holes":
+                                Game.holes = "lots"
+                            self.generate_level()
+                        
+                        elif text in ["5", "10", "15", "20", "25", "30"]:
+                            if lastmenu == "tile size":
+                                Game.tilesize = int(text)
+                                Flytext(500,400,"Tilesize is now : {}".format(text), fontsize=40, color=(128,0,128))
+                                self.generate_level()
                         elif text == "rockets":
                             if Game.gold < Game.price:
                                 Flytext(500, 500, text = "you need {} gold".format(Game.price))
@@ -1009,38 +1131,24 @@ class Viewer():
             Game.gold, Game.price, Game.rockets, Game.shooting_angle, Game.playerspeed, self.clock.get_fps() ), x=10, y=10)
             
             #---- draw shootingangle
+            if Game.menu == Game.playermenu:
+                self.draw_spaceship()
             
-            # ellipse arc angle in Radiants
-            start = (90 - Game.shooting_angle) * math.pi / 180
-            end =   (90 + Game.shooting_angle) * math.pi / 180
-            #print(start, end)
-            # shema of ship
-            pygame.draw.polygon(self.screen, (0,0,255), 
-                     [(700, 300), (600, 600),(700, 550), (800, 600)], 3)
-            # bogerl
-            pygame.draw.arc(self.screen, ( 200,200,200), (600,200,200, 200), start, end, 2) 
-            # radien
-            middlevec = pygame.math.Vector2( 700, -300)
-            w = pygame.math.Vector2(120, 0)
-            w.rotate_ip(90 +Game.shooting_angle)
-            v = middlevec + w
-            pygame.draw.line(self.screen, ( 200,200, 200), (700,300), (v.x, -v.y))
-            w = pygame.math.Vector2(120, 0)
-            w.rotate_ip(90- Game.shooting_angle)
-            v = middlevec + w
-            pygame.draw.line(self.screen, ( 200,200, 200), (700,300), (v.x, -v.y))
-            
-            
-            self.allgroup.update(seconds)
+            # ---------------- 
+            self.flytextgroup.update(seconds)
             
 
             # draw menu
-            for a, line in enumerate(Game.menupoints):
+            for a, line in enumerate(Game.menu):
                 write(self.screen, line, x=200, y= 100+a*25)
             c = random.randint(64, 128)   #, random.randint(0,255), random.randint(0,255))
             write(self.screen, "--->", x = 120, y = 100+cursor * 25, color = (c,c,c))
             pygame.display.flip()
         # --- menu fertig -----
+        # exit pygame
+        #pygame.mouse.set_visible(True)    
+        #pygame.quit()
+        return -1
    
     def run(self):
         """The mainloop"""
@@ -1054,17 +1162,17 @@ class Viewer():
         self.dickedelta = 0.4
         self.rot = 255
         self.rotdelta = 5
-        self.menutime = False
-        self.menudeltatime = 0
+        #self.menutime = False
+        #self.menudeltatime = 0
         while running:
             milliseconds = self.clock.tick(self.fps) #
-            if self.menutime:
-                self.menudeltatime += milliseconds / 1000
-                self.menutime = False
-                seconds = milliseconds / 1000 - self.menudeltatime
-                self.menudeltatime = 0
-            else:
-                seconds = milliseconds / 1000
+            #if self.menutime:
+            #    self.menudeltatime += milliseconds / 1000
+            #    self.menutime = False
+            seconds = milliseconds / 1000 #- self.menudeltatime
+            #self.menudeltatime = 0
+            #else:
+            #    seconds = milliseconds / 1000
             self.playtime += seconds
             
             if gameOver:
@@ -1078,13 +1186,17 @@ class Viewer():
                     running = False
                 # ------- pressed and released key ------
                 elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_n:
+                        self.generate_level()
                     if event.key == pygame.K_ESCAPE:
                         running = False
                     if event.key == pygame.K_TAB:
                         self.player1.fire(self.cannon1.angle)
                     if event.key == pygame.K_m:
-                        self.menutime = True
-                        self.menu()
+                        #self.menutime = True
+                        result = self.menurun()
+                        if result == -1:
+                            running = False
                     if event.key == pygame.K_e:
                         ep = pygame.math.Vector2(self.player1.pos.x, self.player1.pos.y)
                         Explosion(pos = ep, red = 100, dred = 20, minsparks = 200, maxsparks = 300)
