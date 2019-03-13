@@ -1,23 +1,15 @@
 """
-author: Horst JENS
-email: horstjens@gmail.com
-contact: see http://spielend-programmieren.at/de:kontakt
+author: Paul Polaschek
+email: paul.plaschek@gmail.com
 license: gpl, see http://www.gnu.org/licenses/gpl-3.0.de.html
-download: 
-idea: clean python3/pygame template using pygame.math.vector2
+download: https://github.com/PaulPolaschek/Cave_system
 
 """
 import pygame
-#import math
 import random
 import os
-import time
-#import operator
-import math
-#import vectorclass2d as v
-#import textscroller_vertical as ts
-#import subprocess
-
+#import time
+#import math
 """Best game: 10 waves by Ines"""
 
 def make_text(msg="pygame is cool", fontcolor=(255, 0, 255), fontsize=42, font=None):
@@ -419,6 +411,7 @@ class Spark(VectorSprite):
         pygame.draw.line(self.image, self.color, (1,1),(random.randint(5,10),1), random.randint(1,3))
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
+        self._layer = 7
         self.rect = self.image.get_rect()
         self.image0 = self.image.copy()
     
@@ -467,11 +460,38 @@ class Cannon(VectorSprite):
     def update(self, seconds):
         VectorSprite.update(self, seconds)
         rightvector = pygame.math.Vector2(1,0)
-        mousevector = pygame.math.Vector2(pygame.mouse.get_pos()[0],
+        # if bossnumber of cannon == 0: 
+        #    cannon is from player and aims at mouse
+        # else:
+        #    cannon aims at player (number==0)
+        if self.bossnumber ==  0:
+             # it's the cannon of player1
+             mousevector = pygame.math.Vector2(pygame.mouse.get_pos()[0],
                                        -pygame.mouse.get_pos()[1])
-        diffvector = mousevector - self.pos                               
+             
+        else:
+             mousevector = VectorSprite.numbers[0].pos
+             # its an enemy cannon and should aim at player
+        diffvector = mousevector - self.pos
         angle = rightvector.angle_to(diffvector)
         self.set_angle(angle)
+        
+        if self.bossnumber != 0:
+            # shoot !!!! at player !!!
+            if random.random() < 0.1:
+                m = pygame.math.Vector2(50,0)
+                m.rotate_ip(self.angle)
+                EnemyRocket(pos=self.pos, angle = self.angle, move=m)
+        
+class Enemy1(VectorSprite):
+    
+    def create_image(self):
+        self.image = pygame.Surface((20,20))
+        pygame.draw.circle(self.image, (250,0,0), (10,10), 10)
+        self.image.set_colorkey((0,0,0))
+        self.image.convert_alpha()
+        self.rect = self.image.get_rect()
+        
         
 
 class Player(VectorSprite):
@@ -481,6 +501,9 @@ class Player(VectorSprite):
         self.rot = 255
         self.mass = 400
         self.radius = 25
+        self._layer = 8
+        self.hitpoints = 1000
+        self.gravity = pygame.math.Vector2(0, -0.1)
         #print("i am the Player, ", self.number)
         #print("Player.number:", self.number)
         #Cannon(bossnumber = self.number, sticky_with_boss = True)
@@ -508,7 +531,7 @@ class Player(VectorSprite):
         Flame(bossnumber=self.number, pos = self.pos)
         if random.random() < 0.2:
             Smoke(pos = self.pos, gravity = None, max_age=3.0)
-            5
+            
         
     
     def create_image(self):
@@ -533,102 +556,41 @@ class Player(VectorSprite):
         self.create_image() 
         self.rect.center = oldcenter
         self.set_angle(self.angle)
+        # gravity:
+        self.move += self.gravity
 
         
 class Tile(VectorSprite):
     
     def _overwrite_parameters(self):
-        self._layer = 3 # so that player will be over Tile, not below it
+        self._layer = 1 # so that player will be over Tile, not below it
+        self.hitpoints = 200
+        self.hitpoints_old = 200
+        self.static = True
     
+    def update(self, seconds):
+        VectorSprite.update(self, seconds)
+        if self.hitpoints < self.hitpoints_old:
+            oldcenter = self.rect.center
+            self.create_image()
+            self.rect.center = oldcenter
+            self.hiptoins_old = self.hitpoints_old
     
     def create_image(self):
         self.image = pygame.Surface((Game.tilesize,Game.tilesize))
-        self.image.fill(self.color)
-        pygame.draw.rect(self.image, (250,250,250), (0,0,Game.tilesize,Game.tilesize), 1)
+        c = 255-self.hitpoints
+        self.image.fill((c,c,c))
+        pygame.draw.rect(self.image, (255,255,255), (0,0,Game.tilesize,Game.tilesize), 1)
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
         self.image0 = self.image.copy()
         self.rect = self.image.get_rect()
         
-        
-class EvilLaser(VectorSprite):
-    
-    def _overwrite_parameters(self):
-        self.kill_on_edge = True
-    
-    def create_image(self):
-        self.image = pygame.Surface((30,5))
-        self.farbe = (random.randint(30,50),random.randint(200,255),random.randint(0,20))
-        self.image.fill(self.farbe)
-        self.image.set_colorkey((0,0,0))
-        self.image.convert_alpha()
-        self.image0 = self.image.copy()
-        self.rect = self.image.get_rect()
         
 
-class EvilMonster(VectorSprite):
-    
-    def _overwrite_parameters(self):
-        #self.rotdelta = 1
-        self.rot = random.randint(5,250)
-        self.rotdelta = random.randint(1,5) * random.choice((-1,1))
-        self.radius = 25
-        self.mass = random.randint(50, 150)
-        self.hitpoints = 100
-        
-    
-    def create_image(self):
-        self.image = pygame.Surface((50,50))
-        pygame.draw.circle(self.image, (255, 255, 0), (25,25), 25)
-        pygame.draw.circle(self.image, (self.rot, 0, 0), (10,10), 10)
-        pygame.draw.circle(self.image, (self.rot, 0, 0), (40,10), 10)
-        self.image.set_colorkey((0,0,0))
-        self.image.convert_alpha()
-        self.rect = self.image.get_rect()
-        self.image0 = self.image.copy()
-        self.rot += self.rotdelta
-        if self.rot > 255:
-            self.rot = 255
-            self.rotdelta *= -1
-        if self.rot < 1:
-            self.rot = 1
-            self.rotdelta *= -1
-       
-    def update(self, seconds):
-        #---ai----
-        if random.random() < 0.01:
-            v = pygame.math.Vector2(1,0)
-            v.rotate_ip(random.randint(0,360))
-            v *= random.random()*50
-            self.move = v
-        VectorSprite.update(self, seconds)
-        oldcenter = self.rect.center
-        self.create_image() 
-        self.rect.center = oldcenter
-        self.set_angle(self.angle)
-        if random.random() < 0.002:
-            self.fire()
-            
-    def fire(self):
-        # wir wissen, player1 hat number 0
-        # gibts ihn noch?
-        if 0 not in VectorSprite.numbers:
-            return 
-        p1 = VectorSprite.numbers[0]
-        rightvector = pygame.math.Vector2(1,0)
-        diffvector = p1.pos - self.pos
-        diffvector.normalize_ip()
-        a = rightvector.angle_to(diffvector)
-        p = pygame.math.Vector2(self.pos.x, self.pos.y)
-        EvilLaser(pos = p, angle=a, move=diffvector*50, max_age = 5)
-        
-    def kill(self):
-        Explosion(pos = self.pos, red = 255, dred = 20, green = 255, dgreen = 20, blue = 0, a1 = 0, a2 = 360)
-        Game.gold += 1
-        VectorSprite.kill(self)
        
 class Flame(VectorSprite):
-    
+    """ engine flame for spaceship"""    
     def _overwrite_parameters(self):
         self.sticky_with_boss = True
         self.max_age = 0.01
@@ -710,31 +672,18 @@ class Rocket(VectorSprite):
         self.image0 = self.image.copy()
         self.rect = self.image.get_rect()
         
-  #  def update(self, seconds):
-        # --- speed limit ---
-   #     if self.move.length() != self.speed:
-     #       if self.move.length() < 0:
-    #            self.move = self.move.normalize() * self.speed
-    #        else:
-    #            pass
-    #    if self.move.length() > 0:
-    #        self.set_angle(-self.move.angle_to(pygame.math.Vector2(-1,0)))
-    #        self.move = self.move.normalize() * self.speed
-    #        # --- Smoke ---
-    #        if random.random() < 0.2 and self.age > 0.1:
-    #            Smoke(pos=pygame.math.Vector2(self.pos.x, self.pos.y), 
-    #               gravity=pygame.math.Vector2(0,4), max_age = 4)
-    #    self.oldage = self.age
-    #    VectorSprite.update(self, seconds)
-    #    # new rockets are stored offscreen 500 pixel below Viewer.height
-    #    if self.age > self.readyToLaunchTime and self.oldage < self.readyToLaunchTime:
-    #        self.pos.y -= 500
 
-#    def kill(self):
-#        Explosion(pos=pygame.math.Vector2(self.pos.x, self.pos.y),max_age=2.1, color=(200,255,255), damage = self.damage)
-#        VectorSprite.kill(self)    
-
-
+class EnemyRocket(Rocket):
+    
+    def create_image(self):
+        self.image = pygame.Surface((10,5))
+        pygame.draw.polygon(self.image, (255, 0, 128),
+            [(0,0),(7,0),(10,2),(10,3),(7,4),(0,4)])
+        self.image.set_colorkey((0,0,0))
+        self.image.convert_alpha()
+        self.image0 = self.image.copy()
+        self.rect = self.image.get_rect()
+    
 class Game():
     
     menu = []
@@ -854,15 +803,27 @@ class Viewer():
                 
         # ---- create rectangular room ----
         for _ in range(howmuch[Game.rooms]):
-            self.rectangle_hole(random.randint(0, len(line)), random.randint(0, len(self.lines)), random.randint(5,10), random.randint(5,10))
+            x = random.randint(0, len(line))
+            y = random.randint(0, len(self.lines))
+            w = random.randint(5,10)
+            h = random.randint(5,10)
+            self.rectangle_hole(x, y, w, h )
+            if random.random() < 1:
+                Enemy1(pos=pygame.math.Vector2((x)*Game.tilesize, -(y)*Game.tilesize))
         # ---- create round room (hole) -------
         for _ in range(howmuch[Game.holes]):
             self.round_hole(random.randint(5, len(line)-5), random.randint(5, len(self.lines)-5), random.randint(2,5))
-        
+        #round hole for player
+        self.round_hole(len(line)//2, len(self.lines)//2, 4)
         #self.round_hole(40,9, 8)
         # circles
         
         # rects 
+        
+        # ---- cannon for each enemy1
+        for e in self.enemygroup:
+            Cannon(bossnumber = e.number) 
+        
         
         self.paint_level()
                 
@@ -887,15 +848,16 @@ class Viewer():
         """painting on the surface and create sprites"""
         self.allgroup =  pygame.sprite.LayeredUpdates() # for drawing
         self.mousegroup = pygame.sprite.Group()
-        self.monstergroup = pygame.sprite.Group()
+        #self.monstergroup = pygame.sprite.Group()
         self.playergroup = pygame.sprite.Group()
         self.rocketgroup = pygame.sprite.Group()
-        self.lasergroup = pygame.sprite.Group()
+        #self.lasergroup = pygame.sprite.Group()
         self.flytextgroup = pygame.sprite.Group()
         self.tilegroup = pygame.sprite.Group()
-
+        self.enemygroup = pygame.sprite.Group()
+        
         Mouse.groups = self.allgroup, self.mousegroup
-        EvilMonster.groups = self.allgroup, self.monstergroup
+        #EvilMonster.groups = self.allgroup, self.monstergroup
         VectorSprite.groups = self.allgroup
         Flytext.groups = self.allgroup, self.flytextgroup
         Player.groups = self.allgroup, self.playergroup
@@ -903,8 +865,9 @@ class Viewer():
         Spark.groups = self.allgroup
         Smoke.groups = self.allgroup
         Flame.groups = self.allgroup
-        EvilLaser.groups = self.allgroup, self.lasergroup
+        #EvilLaser.groups = self.allgroup, self.lasergroup
         Tile.groups = self.allgroup, self.tilegroup
+        Enemy1.groups = self.allgroup, self.enemygroup
 
    
         # ------ player1,2,3: mouse, keyboard, joystick ---
@@ -1254,57 +1217,54 @@ class Viewer():
 
           
             
-            # write text below sprites
-            write(self.screen, "FPS: {:8.3}  rockets: {} gold: {}".format(
-                self.clock.get_fps(), Game.rockets, Game.gold ), x=10, y=10)
             self.allgroup.update(seconds)
 
-            # --------- collision detection between player and monster -----
-            for p in self.playergroup:
-                crashgroup = pygame.sprite.spritecollide(p, self.monstergroup,
-                             False, pygame.sprite.collide_mask)
-                for m in crashgroup:
-                    elastic_collision(p, m)
-            
-            # --------- collision detection between monster and other monsters -----                    
-            for m in self.monstergroup:
-                crashgroup = pygame.sprite.spritecollide(m, self.monstergroup,
-                             False, pygame.sprite.collide_circle)
-                for m2 in crashgroup:
-                    if m.number != m2.number:
-                        elastic_collision(m, m2)
 
-            # --------- collision detection between monster and rockets -----                    
-            for m in self.monstergroup:
-                crashgroup = pygame.sprite.spritecollide(m, self.rocketgroup,
-                             False, pygame.sprite.collide_circle)
-                for r in crashgroup:
-                    elastic_collision(m, r)
-                    m.hitpoints -= r.damage
-                    # winkel zwischen monstermittelpunkt und rocket
-                    rightvector = pygame.math.Vector2(1,0)
-                    diffvector = r.pos - m.pos
-                    a = rightvector.angle_to(diffvector)
-                    Explosion(pos = r.pos, red = 200, dred = 20, minsparks = 100, maxsparks = 200, a1 = a-40, a2 = a+40, max_age = 0.25)
-                    r.kill()
-                    
-            # --------- collision detection between player and laser -----
-            for p in self.playergroup:
-                crashgroup = pygame.sprite.spritecollide(p, self.lasergroup,
-                             False, pygame.sprite.collide_mask)
-                
-                for l in crashgroup:
-                    #elastic_collision(p,l)
-                    p.hitpoints -= l.damage 
-                    rightvector = pygame.math.Vector2(1,0)
-                    diffvector = l.pos - p.pos
-                    a = rightvector.angle_to(diffvector)
-                    Explosion(pos = l.pos, red = 0, dred = 0, blue = 0, dblue = 0, green = 200, dgreen = 20, minsparks = 100, maxsparks = 200, a1 = a-40, a2 = a+40, max_age = 0.25)
-                    l.kill()
             
+            # ======== collision detections ============
+            
+            #----- between Tile and player ------
+            for p in self.playergroup:
+                crashgroup = pygame.sprite.spritecollide(p, self.tilegroup,
+                             False, pygame.sprite.collide_mask)
+                for t in crashgroup:
+                     # elastic_collision(p, m)
+                     t.hitpoints -= 5
+                     p.hitpoints -= 1
+                     Explosion(t.pos, red=200, dred=50, minsparks=1, maxsparks=2)
+                     #elastic_collision(t,p)                    
+                     v = p.move * -1
+                     ok = True
+                     try: 
+                        v.normalize_ip()
+                     except:
+                         ok = False
+                     if ok:
+                        v *= 4 # distance to wall
+                        p.pos += v
+                        #p.pos += (p.move * -1)
+                        p.move = pygame.math.Vector2(0,0)
+                    
+            
+            #------ between Tile and rocket ------
+            for r in self.rocketgroup:
+                crashgroup = pygame.sprite.spritecollide(r, self.tilegroup,
+                             False, pygame.sprite.collide_mask)
+                for t in crashgroup:
+                    t.hitpoints -= 5
+                    
+                    b1 = r.angle -45 + 180
+                    b2 = r.angle + 45 + 180
+                    Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=128, green=128, blue=128, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
+                    r.kill()
             
             # ----------- clear, draw , update, flip -----------------
             self.allgroup.draw(self.screen)
+            
+            # write text over sprites
+            write(self.screen, "hp: {} FPS: {:8.3}  rockets: {} gold: {}".format(self.player1.hitpoints,
+                self.clock.get_fps(), Game.rockets, Game.gold ), x=10, y=0, fontsize=14)
+            
             
             # --- Martins verbesserter Mousetail -----
             for mouse in self.mousegroup:
