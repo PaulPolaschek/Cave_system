@@ -495,7 +495,10 @@ class Enemy1(VectorSprite):
         self.image.convert_alpha()
         self.rect = self.image.get_rect()
         
-        
+    def kill(self):
+        VectorSprite.kill(self)
+        Explosion(pos = self.pos, red = 200, dred = 50, minsparks = 50, maxsparks = 100, max_age = 1)
+    
 
 class Player(VectorSprite):
     
@@ -505,7 +508,7 @@ class Player(VectorSprite):
         self.mass = 400
         self.radius = 25
         self._layer = 8
-        self.hitpoints = 1000
+        self.hitpoints = Game.playerhitpoints
         self.gravity = pygame.math.Vector2(0, -0.1)
         self.oldpos = pygame.math.Vector2(self.pos.x,self.pos.y)
         #print("i am the Player, ", self.number)
@@ -716,7 +719,7 @@ class Game():
     manymenu = ["back to level menu", "none", "few", "many", "lots"]
     
     rockets = 1
-    playerhitpoints = 100
+    playerhitpoints = 1000
     playerspeed = 1
     rocketspeed = 1
     shooting_angle = 20
@@ -1300,15 +1303,32 @@ class Viewer():
                         Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
                         r.kill()
                 
+                #------ between rocket and enemy ------
+                for e in self.enemygroup:
+                    crashgroup = pygame.sprite.spritecollide(e, self.rocketgroup,
+                                 False, pygame.sprite.collide_circle)
+                    for r in crashgroup:
+                        e.hitpoints -= r.damage
+                        b1 = r.angle -45 + 180
+                        b2 = r.angle + 45 + 180
+                        Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
+                        r.kill()
+                
+                
             # ----------- clear, draw , update, flip -----------------
             self.allgroup.draw(self.screen)
             
-            pygame.draw.rect(self.screen, (0,255,0), (0,0,self.player1.hitpoints,20))
+            hppercent = self.player1.hitpoints / Game.playerhitpoints
+            g = max(0, 255 * hppercent)
+            r = 255 - g
+            #print("g={}".format(255 * hppercent))
+            pygame.draw.rect(self.screen, (255,255,0), (0,2,self.player1.hitpoints+4,16))
+            pygame.draw.rect(self.screen, (r,g,0), (2,4,self.player1.hitpoints,12))
             
             # write text over sprites
-            write(self.screen, "hp: {}".format(self.player1.hitpoints), x=10, y=0, fontsize=14)
+            write(self.screen, "hp: {}".format(self.player1.hitpoints), x=10, y=2, fontsize=14)
             write(self.screen, "FPS: {:8.3}  rockets: {} gold: {}".format(self.clock.get_fps(),
-            Game.rockets, Game.gold), x=1150, y=0, fontsize = 14)
+            Game.rockets, Game.gold), x=1150, y=0, fontsize = 14, color = (255,255,255))
             
             # --- Martins verbesserter Mousetail -----
             for mouse in self.mousegroup:
