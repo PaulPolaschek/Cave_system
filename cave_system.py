@@ -9,7 +9,7 @@ import pygame
 import random
 import os
 #import time
-#import math
+import math
 
 def make_text(msg="pygame is cool", fontcolor=(255, 0, 255), fontsize=42, font=None):
     """returns pygame surface with text. You still need to blit the surface."""
@@ -489,8 +489,8 @@ class Cannon(VectorSprite):
 class Enemy1(VectorSprite):
     
     def create_image(self):
-        self.image = pygame.Surface((20,20))
-        pygame.draw.circle(self.image, (250,0,0), (10,10), 10)
+        self.image = pygame.Surface((Game.tilesize,Game.tilesize))
+        pygame.draw.circle(self.image, (250,0,0), (Game.tilesize//2,Game.tilesize//2), Game.tilesize//2)
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
         self.rect = self.image.get_rect()
@@ -542,8 +542,8 @@ class Player(VectorSprite):
         
     
     def create_image(self):
-        self.image = pygame.Surface((20,20))
-        pygame.draw.polygon(self.image, (255, 255, 0), ((0,0),(20,10),(0,20),(10,10)))
+        self.image = pygame.Surface((Game.tilesize,Game.tilesize))
+        pygame.draw.polygon(self.image, (255, 255, 0), ((0,0),(Game.tilesize,Game.tilesize//2),(0,Game.tilesize),(Game.tilesize//2,Game.tilesize//2)))
         #pygame.draw.line(self.image, (self.rot, 0, 0), (25,25), (50,25),5)
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
@@ -560,7 +560,7 @@ class Player(VectorSprite):
     def kill(self):
         Game.peace = True
         VectorSprite.kill(self)
-        Explosion(pos = self.pos, red = 200, dred = 50, minsparks = 400, maxsparks = 500, max_age = 3)
+        Explosion(pos = self.pos, red = 255, green = 255, minsparks = 400, maxsparks = 500, max_age = 3)
     
     def update(self, seconds):
         self.oldpos = pygame.math.Vector2(self.pos.x, self.pos.y)
@@ -576,15 +576,20 @@ class Player(VectorSprite):
 class Tile(VectorSprite):
     
     def _overwrite_parameters(self):
+        self.tilestatus = "normal"
         self._layer = 1 # so that player will be over Tile, not below it
         self.hitpoints, self.hitpoints_old = 200, 200
         if random.random() < 0.1:
             self.hitpoints, self.hitpoints_old = 800, 800
+            self.tilestatus = "immortal"
+            if random.random() < 0.2:
+                self.hitpoints, self.hitpoints_old = 100, 100
+                self.tilestatus = "healing"
         
         self.static = True
     
     def update(self, seconds):
-        VectorSprite.update(self, seconds)
+        VectorSprite.update(self, seconds)    
         if self.hitpoints < self.hitpoints_old:
             oldcenter = self.rect.center
             self.create_image()
@@ -593,8 +598,13 @@ class Tile(VectorSprite):
     
     def create_image(self):
         self.image = pygame.Surface((Game.tilesize,Game.tilesize))
-        if self.hitpoints == 800:
+        if self.tilestatus == "immortal":
             color = (255,165,0)
+        elif self.tilestatus == "healing":
+            c = hppercent = self.hitpoints / 100
+            g = max(0, 255 * hppercent)
+            r = 255 - g
+            color = (r,g,0)
         else:
             c = max(0, 255-self.hitpoints)
             c = min(255, 255-self.hitpoints) 
@@ -824,6 +834,11 @@ class Viewer():
                    "few" : 5,
                    "many": 10,
                    "lots": 15 }
+        
+        #------ kill all enemies -----
+        for e in self.enemygroup:
+             e.kill()
+            
                 
         # ---- create rectangular room ----
         for _ in range(howmuch[Game.rooms]):
@@ -854,8 +869,8 @@ class Viewer():
         
     def paint_level(self):
          # kill old tiles 
-         for p in self.tilegroup:
-             p.kill()
+         for t in self.tilegroup:
+             t.kill()
          # generate new tiles
          for y, line in enumerate(self.lines):
               for x, char in enumerate(line):
@@ -899,10 +914,10 @@ class Viewer():
         self.cannon1 = Cannon(bossnumber=self.player1.number)
         
         self.mouse1 = Mouse(control="mouse", color=(255,0,0))
-        self.mouse2 = Mouse(control='keyboard1', color=(255,255,0))
-        self.mouse3 = Mouse(control="keyboard2", color=(255,0,255))
-        self.mouse4 = Mouse(control="joystick1", color=(255,128,255))
-        self.mouse5 = Mouse(control="joystick2", color=(255,255,255))
+        #self.mouse2 = Mouse(control='keyboard1', color=(255,255,0))
+        #self.mouse3 = Mouse(control="keyboard2", color=(255,0,255))
+        #self.mouse4 = Mouse(control="joystick1", color=(255,128,255))
+        #self.mouse5 = Mouse(control="joystick2", color=(255,255,255))
 
         #xtiles = (Viewer.width-10) // 20
         #ytiles = (Viewer.height-30) // 20
@@ -1115,7 +1130,7 @@ class Viewer():
             self.flytextgroup.draw(self.screen)
             # draw status
             write(self.screen, "gold: {} price: {} rockets: {} shootingangle: {} playerspeed: {} FPS: {:8.3}".format(
-            Game.gold, Game.price, Game.rockets, Game.shooting_angle, Game.playerspeed, self.clock.get_fps() ), x=10, y=10)
+            Game.gold, Game.price, Game.rockets, Game.shooting_angle, Game.playerspeed, self.clock.get_fps() ), x=10, y=10, color = (255,255,255))
             
             #---- draw shootingangle
             if Game.menu == Game.playermenu:
@@ -1127,8 +1142,8 @@ class Viewer():
 
             # draw menu
             for a, line in enumerate(Game.menu):
-                write(self.screen, line, x=200, y= 100+a*25)
-            c = random.randint(64, 128)   #, random.randint(0,255), random.randint(0,255))
+                write(self.screen, line, x=200, y= 100+a*25, color = (255,255,255))
+            c = random.randint(200, 255)   #, random.randint(0,255), random.randint(0,255))
             write(self.screen, "--->", x = 120, y = 100+cursor * 25, color = (c,c,c))
             pygame.display.flip()
         # --- menu fertig -----
@@ -1189,9 +1204,6 @@ class Viewer():
                         result = self.menurun()
                         if result == -1:
                             running = False
-                    if event.key == pygame.K_e:
-                        ep = pygame.math.Vector2(self.player1.pos.x, self.player1.pos.y)
-                        Explosion(pos = ep, red = 100, dred = 20, minsparks = 200, maxsparks = 300)
                     # ---- -simple movement for self.player1 -------
                     if event.key == pygame.K_RIGHT:
                         self.player1.move += pygame.math.Vector2(10,0)
@@ -1256,10 +1268,13 @@ class Viewer():
                                  False, pygame.sprite.collide_rect)
                     for t in crashgroup:
                          # elastic_collision(p, m)
-                         if t.hitpoints != 800:
+                         if t.tilestatus != "immortal":
                              t.hitpoints -= 5
-                         p.hitpoints -= 1
-                         Explosion(t.pos, red=200, dred=50, minsparks=1, maxsparks=2)
+                         if t.tilestatus == "healing":
+                            p.hitpoints += 5
+                         else:
+                             p.hitpoints -= 1
+                             Explosion(t.pos, red=200, dred=50, minsparks=1, maxsparks=2)
                          #elastic_collision(t,p)                    
                          #v = p.move * -1
                          #ok = True
