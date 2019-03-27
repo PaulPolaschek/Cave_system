@@ -486,11 +486,11 @@ class Cannon(VectorSprite):
                 p.rotate_ip(self.angle)
                 EnemyRocket(pos=self.pos+p, angle = self.angle, move=m)
         
-class Enemy1(VectorSprite):
+class Turret(VectorSprite):
     
     def create_image(self):
-        self.image = pygame.Surface((Game.tilesize,Game.tilesize))
-        pygame.draw.circle(self.image, (250,0,0), (Game.tilesize//2,Game.tilesize//2), Game.tilesize//2)
+        self.image = pygame.Surface((20,20))
+        pygame.draw.circle(self.image, (250,0,0), (10,10), 10)
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
         self.rect = self.image.get_rect()
@@ -498,7 +498,38 @@ class Enemy1(VectorSprite):
     def kill(self):
         VectorSprite.kill(self)
         Explosion(pos = self.pos, red = 200, dred = 50, minsparks = 50, maxsparks = 100, max_age = 1)
+ 
+class Guardian(VectorSprite):
     
+    def _overwrite_parameters(self):
+        self.speed = random.randint(5,15)
+        v = pygame.math.Vector2(self.speed)
+        v.rotate_ip(random.randint(0,360))
+        self.move = v
+        self.anchor = pygame.math.Vector2(self.pos.x, self.pos.y)
+        self.max_dist = 100
+    
+    def create_image(self):
+        self.image = pygame.Surface((30,30))
+        pygame.draw.circle(self.image, (255,0,255), (15,15), 15)
+        pygame.draw.circle(self.image, (0,0,255), (15,15), 5)
+        self.image.set_colorkey((0,0,0))
+        self.image.convert_alpha()
+        self.rect = self.image.get_rect()
+        
+    def update(self, seconds):
+        VectorSprite.update(self, seconds)
+        # ----
+        #if random.random() < 0.05:
+        #    self.move.rotate_ip(random.randint(0,360))
+        # ----
+        dist = self.anchor - self.pos
+        if dist.length() > self.max_dist:
+            self.move = pygame.math.Vector2(dist.x,dist.y)
+            self.move.normalize_ip()
+            self.move *= self.speed
+            
+        
 
 class Player(VectorSprite):
     
@@ -529,7 +560,7 @@ class Player(VectorSprite):
                 v = pygame.math.Vector2(100,0)
                 v.rotate_ip(b)
                 v += self.move
-                Rocket(pos=p+t, move = v, angle = b, max_distance = Game.rocket_range)
+                Rocket(pos=p+t, move = v, angle = b, max_distance = Game.rocket_range,  bossnumber=0)
        
     def move_forward(self):
         v = pygame.math.Vector2(Game.playerspeed,0)
@@ -576,15 +607,15 @@ class Player(VectorSprite):
 class Tile(VectorSprite):
     
     def _overwrite_parameters(self):
-        self.tilestatus = "normal"
+        self.tilestatus = 0
         self._layer = 1 # so that player will be over Tile, not below it
         self.hitpoints, self.hitpoints_old = 200, 200
         if random.random() < 0.1:
             self.hitpoints, self.hitpoints_old = 800, 800
-            self.tilestatus = "immortal"
-            if random.random() < 0.2:
-                self.hitpoints, self.hitpoints_old = 100, 100
-                self.tilestatus = "healing"
+            self.tilestatus = 1
+        if random.random() < 0.02:
+            self.hitpoints, self.hitpoints_old = 100, 100
+            self.tilestatus = 2
         
         self.static = True
     
@@ -598,17 +629,18 @@ class Tile(VectorSprite):
     
     def create_image(self):
         self.image = pygame.Surface((Game.tilesize,Game.tilesize))
-        if self.tilestatus == "immortal":
+        if self.tilestatus == 1:
             color = (255,165,0)
-        elif self.tilestatus == "healing":
-            c = hppercent = self.hitpoints / 100
+        elif self.tilestatus == 2:
+            color = (0,255,0)
+            hppercent = self.hitpoints / 100
             g = max(0, 255 * hppercent)
             r = 255 - g
             color = (r,g,0)
         else:
             c = max(0, 255-self.hitpoints)
             c = min(255, 255-self.hitpoints) 
-        #print("c=",c)
+            #print("c=",c)
             color = (c,c,c)
         self.image.fill(color)
         pygame.draw.rect(self.image, (255,255,255), (0,0,Game.tilesize,Game.tilesize), 1)
@@ -848,7 +880,11 @@ class Viewer():
             h = random.randint(5,10)
             self.rectangle_hole(x, y, w, h )
             if random.random() < 1:
-                Enemy1(pos=pygame.math.Vector2((x)*Game.tilesize, -(y)*Game.tilesize))
+                Turret(pos=pygame.math.Vector2((x)*Game.tilesize, -(y)*Game.tilesize))
+            if random.random() < 1:
+                xg = (x - w // 2 ) * Game.tilesize #+10
+                yg = (y - h // 2 ) * Game.tilesize #-30
+                Guardian(pos = pygame.math.Vector2(xg,-yg))
         # ---- create round room (hole) -------
         for _ in range(howmuch[Game.holes]):
             self.round_hole(random.randint(5, len(line)-5), random.randint(5, len(self.lines)-5), random.randint(2,5))
@@ -894,6 +930,7 @@ class Viewer():
         self.flytextgroup = pygame.sprite.Group()
         self.tilegroup = pygame.sprite.Group()
         self.enemygroup = pygame.sprite.Group()
+        self.guardiangroup = pygame.sprite.Group()
         
         Mouse.groups = self.allgroup, self.mousegroup
         #EvilMonster.groups = self.allgroup, self.monstergroup
@@ -906,13 +943,14 @@ class Viewer():
         Flame.groups = self.allgroup
         #EvilLaser.groups = self.allgroup, self.lasergroup
         Tile.groups = self.allgroup, self.tilegroup
-        Enemy1.groups = self.allgroup, self.enemygroup
+        Turret.groups = self.allgroup, self.enemygroup
+        Guardian.groups = self.allgroup, self.guardiangroup
 
    
         # ------ player1,2,3: mouse, keyboard, joystick ---
-        self.player1 =  Player(warp_on_edge=True, pos=pygame.math.Vector2(Viewer.width/2,-Viewer.height/2))
+        self.player1 =  Player(bounce_on_edge = True, pos=pygame.math.Vector2(Viewer.width/2,-Viewer.height/2))
         self.cannon1 = Cannon(bossnumber=self.player1.number)
-        
+        print("cannon1 has number", self.cannon1.number)
         self.mouse1 = Mouse(control="mouse", color=(255,0,0))
         #self.mouse2 = Mouse(control='keyboard1', color=(255,255,0))
         #self.mouse3 = Mouse(control="keyboard2", color=(255,0,255))
@@ -1297,14 +1335,29 @@ class Viewer():
                 #------ between Tile and rocket ------
                 for r in self.rocketgroup:
                     crashgroup = pygame.sprite.spritecollide(r, self.tilegroup,
-                                 False, pygame.sprite.collide_rect)
+                                False, pygame.sprite.collide_rect)
                     for t in crashgroup:
-                        if t.hitpoints != 800:
-                             t.hitpoints -= r.damage
-                        
-                             b1 = r.angle -45 + 180
-                             b2 = r.angle + 45 + 180
-                             Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=128, green=128, blue=128, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
+                        print("r.bossnr, t.tilest", r.bossnumber, t.tilestatus)
+                        if r.bossnumber == 0:
+                            if t.tilestatus == 0:
+                                print("hitting normal tile")
+                                # normal
+                                b1 = r.angle -45 + 180
+                                b2 = r.angle + 45 + 180
+                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=128, green=128, blue=128, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
+                                t.hitpoints -= r.damage
+                            elif t.tilestatus == 1:
+                                # golden
+                                b1 = r.angle -45 + 180
+                                b2 = r.angle + 45 + 180
+                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=255, green=165, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
+                                t.hitpoints -= r.damage
+                            else:
+                                # healing
+                                b1 = r.angle -45 + 180
+                                b2 = r.angle + 45 + 180
+                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=0, green=255, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
+                                t.hitpoints -= r.damage
                         r.kill()
                 
                 #------ between player and rocket ------
@@ -1312,23 +1365,34 @@ class Viewer():
                     crashgroup = pygame.sprite.spritecollide(p, self.rocketgroup,
                                  False, pygame.sprite.collide_rect)
                     for r in crashgroup:
-                        p.hitpoints -= r.damage
-                        b1 = r.angle -45 + 180
-                        b2 = r.angle + 45 + 180
-                        Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
+                        if r.bossnumber != 0:
+                            p.hitpoints -= r.damage
+                            b1 = r.angle -45 + 180
+                            b2 = r.angle + 45 + 180
+                            Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
                         r.kill()
                 
                 #------ between rocket and enemy ------
                 for e in self.enemygroup:
                     crashgroup = pygame.sprite.spritecollide(e, self.rocketgroup,
-                                 False, pygame.sprite.collide_circle)
+                                 False, pygame.sprite.collide_rect)
                     for r in crashgroup:
-                        e.hitpoints -= r.damage
-                        b1 = r.angle -45 + 180
-                        b2 = r.angle + 45 + 180
-                        Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
+                        if r.bossnumber == 0:
+                            e.hitpoints -= r.damage
+                            b1 = r.angle -45 + 180
+                            b2 = r.angle + 45 + 180
+                            Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
                         r.kill()
                 
+                #------ between guardian and tile ----
+                #for g in self.guardiangroup:
+                #    crashgroup = pygame.sprite.spritecollide(g, self.tilegroup,
+                #                 False, pygame.sprite.collide_rect)
+                #    for t in crashgroup:
+                #        print("crashing", g, t)
+                #        g.pos += -g.move
+                #        g.rect.center = (g.pos.x, -g.pos.y)
+                #        g.move *= -1
                 
             # ----------- clear, draw , update, flip -----------------
             self.allgroup.draw(self.screen)
