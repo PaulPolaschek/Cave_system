@@ -1,0 +1,3 @@
+game-music0.ogg   https://opengameart.org/content/jungle-music  cc-by
+Chance-is-music-PSG2.mp3    https://opengameart.org/content/chance-is-music-psg-version  cc-by
+Battle.ogg    https://opengameart.org/content/battle-music-0  cc-by
