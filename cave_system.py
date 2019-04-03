@@ -1,9 +1,4 @@
-"""
-author: Paul Polaschek
-email: paul.plaschek@gmail.com
-license: gpl, see http://www.gnu.org/licenses/gpl-3.0.de.html
-download: https://github.com/PaulPolaschek/Cave_system
-
+"""gam
 """
 import pygame
 import random
@@ -778,12 +773,13 @@ class Game():
 class Viewer():
     width = 0
     height = 0
-    
+    sounds =   {}
     
 
     def __init__(self, width=640, height=400, fps=30):
         """Initialize pygame, window, background, font,...
            default arguments """
+        pygame.mixer.pre_init(44100, -16, 2, 2048)
         pygame.init()
         Viewer.width = width    # make global readable
         Viewer.height = height
@@ -803,6 +799,21 @@ class Viewer():
             random.shuffle(self.backgroundfilenames) # remix sort order
         except:
             print("no folder 'data' or no jpg files in it")
+        # ------- background music -----
+        self.songs = []
+        self.song_index = -1
+        try:
+            for root, dirs, files in os.walk("data"):
+                for file in files:
+                    if file[-4:] == ".ogg":
+                        self.songs.append(file)
+            random.shuffle(self.backgroundfilenames) # remix sort order
+        except:
+            print("no folder 'data' or no ogg files in it")
+        
+        
+        
+        
         #Viewer.bombchance = 0.015
         #Viewer.rocketchance = 0.001
         Viewer.wave = 0
@@ -813,8 +824,18 @@ class Viewer():
         for j in self.joysticks:
             j.init()
         self.prepare_sprites()
+        self.prepare_sounds()
         self.loadbackground()
         Game.menu = Game.mainmenu[:]
+
+    def next_song(self):
+        self.song_index += 1
+        if self.song_index >= len(self.songs)-1:
+            self.song_index = 0
+        pygame.mixer.music.load(os.path.join("data", self.songs[self.song_index]))
+        pygame.mixer.music.play()
+        Flytext(x = 700, y = 100, text = "now playing: {}".format(self.songs[self.song_index]),  color = (255,0,0), fontsize = 100)
+        
 
     def loadbackground(self):
         
@@ -917,8 +938,14 @@ class Viewer():
           #  for y in range(30, Viewer.height, 20):
           #      Tile(pos=pygame.math.Vector2(x, -y), color=(16,16,16))
    
+    def prepare_sounds(self):
         
-
+        Viewer.sounds["playerhitground"] = pygame.mixer.Sound(os.path.join("data", "player_hits_ground.wav"))
+        Viewer.sounds["playershooting"] = pygame.mixer.Sound(os.path.join("data", "player_shooting.wav"))
+        Viewer.sounds["playerdamage"] = pygame.mixer.Sound(os.path.join("data", "player_takes_damage.wav"))
+        Viewer.sounds["playerhealing"] = pygame.mixer.Sound(os.path.join("data", "player_healing.wav"))
+        Viewer.sounds["enemyshooting"] = pygame.mixer.Sound(os.path.join("data", "enemy_shooting.wav"))
+        
     def prepare_sprites(self):
         """painting on the surface and create sprites"""
         self.allgroup =  pygame.sprite.LayeredUpdates() # for drawing
@@ -1202,6 +1229,8 @@ class Viewer():
         self.dickedelta = 0.4
         self.rot = 255
         self.rotdelta = 5
+        self.next_song() # play next song
+        
         #self.menutime = False
         #self.menudeltatime = 0
         while running:
@@ -1231,6 +1260,10 @@ class Viewer():
                             Game.peace = True
                         else:
                             Game.peace = False
+                    if event.key == pygame.K_p:
+                        self.next_song()
+                    if event.key == pygame.K_o:
+                        Viewer.sounds["playerhitground"].play()
                     if event.key == pygame.K_n:
                         self.generate_level()
                     if event.key == pygame.K_ESCAPE:
