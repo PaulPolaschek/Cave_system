@@ -1,5 +1,11 @@
-"""gam
 """
+author: Paul Polaschek
+email: paul.plaschek@gmail.com
+license: gpl, see http://www.gnu.org/licenses/gpl-3.0.de.html
+download: https://github.com/PaulPolaschek/Cave_system
+"""
+
+
 import pygame
 import random
 import os
@@ -555,6 +561,7 @@ class Player(VectorSprite):
                 v = pygame.math.Vector2(100,0)
                 v.rotate_ip(b)
                 v += self.move
+                Viewer.sounds["playershooting"].play()
                 Rocket(pos=p+t, move = v, angle = b, max_distance = Game.rocket_range,  bossnumber=0)
        
     def move_forward(self):
@@ -597,6 +604,8 @@ class Player(VectorSprite):
         self.set_angle(self.angle)
         # gravity:
         self.move += self.gravity
+        if self.hitpoints > Game.playerhitpoints:
+            self.hitpoints = Game.playerhitpoints
 
         
 class Tile(VectorSprite):
@@ -807,7 +816,7 @@ class Viewer():
                 for file in files:
                     if file[-4:] == ".ogg":
                         self.songs.append(file)
-            random.shuffle(self.backgroundfilenames) # remix sort order
+            random.shuffle(self.songs) # remix sort order
         except:
             print("no folder 'data' or no ogg files in it")
         
@@ -830,7 +839,7 @@ class Viewer():
 
     def next_song(self):
         self.song_index += 1
-        if self.song_index >= len(self.songs)-1:
+        if self.song_index >= len(self.songs):
             self.song_index = 0
         pygame.mixer.music.load(os.path.join("data", self.songs[self.song_index]))
         pygame.mixer.music.play()
@@ -940,11 +949,11 @@ class Viewer():
    
     def prepare_sounds(self):
         
-        Viewer.sounds["playerhitground"] = pygame.mixer.Sound(os.path.join("data", "player_hits_ground.wav"))
+        Viewer.sounds["hitground"] = pygame.mixer.Sound(os.path.join("data", "player_hits_ground.wav"))
         Viewer.sounds["playershooting"] = pygame.mixer.Sound(os.path.join("data", "player_shooting.wav"))
         Viewer.sounds["playerdamage"] = pygame.mixer.Sound(os.path.join("data", "player_takes_damage.wav"))
         Viewer.sounds["playerhealing"] = pygame.mixer.Sound(os.path.join("data", "player_healing.wav"))
-        Viewer.sounds["enemyshooting"] = pygame.mixer.Sound(os.path.join("data", "enemy_shooting.wav"))
+        Viewer.sounds["enemydamage"] = pygame.mixer.Sound(os.path.join("data", "enemy_takes_damage.wav"))
         
     def prepare_sprites(self):
         """painting on the surface and create sprites"""
@@ -1260,10 +1269,10 @@ class Viewer():
                             Game.peace = True
                         else:
                             Game.peace = False
-                    if event.key == pygame.K_p:
+                    if event.key == pygame.K_i:
                         self.next_song()
                     if event.key == pygame.K_o:
-                        Viewer.sounds["playerhitground"].play()
+                        Viewer.sounds["hitground"].play()
                     if event.key == pygame.K_n:
                         self.generate_level()
                     if event.key == pygame.K_ESCAPE:
@@ -1339,12 +1348,14 @@ class Viewer():
                                  False, pygame.sprite.collide_rect)
                     for t in crashgroup:
                          # elastic_collision(p, m)
-                         if t.tilestatus != "immortal":
-                             t.hitpoints -= 5
-                         if t.tilestatus == "healing":
-                            p.hitpoints += 5
+                         t.hitpoints -= 1
+                         if t.tilestatus == 2:
+                             #healing tile
+                            p.hitpoints += 1
+                            Viewer.sounds["playerhealing"].play()
                          else:
                              p.hitpoints -= 1
+                             Viewer.sounds["hitground"].play()
                              Explosion(t.pos, red=200, dred=50, minsparks=1, maxsparks=2)
                          #elastic_collision(t,p)                    
                          #v = p.move * -1
@@ -1377,16 +1388,20 @@ class Viewer():
                                 # normal
                                 b1 = r.angle -45 + 180
                                 b2 = r.angle + 45 + 180
+                                Viewer.sounds["hitground"].play()
                                 Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=128, green=128, blue=128, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
                                 t.hitpoints -= r.damage
                             elif t.tilestatus == 1:
                                 # golden
                                 b1 = r.angle -45 + 180
                                 b2 = r.angle + 45 + 180
+                                Viewer.sounds["hitground"].play()
                                 Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=255, green=165, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
                                 t.hitpoints -= r.damage
                             else:
                                 # healing
+                                Viewer.sounds["playerhealing"].play()
+                                VectorSprite.numbers[r.bossnumber].hitpoints += r.damage    
                                 b1 = r.angle -45 + 180
                                 b2 = r.angle + 45 + 180
                                 Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=0, green=255, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
@@ -1402,6 +1417,7 @@ class Viewer():
                             p.hitpoints -= r.damage
                             b1 = r.angle -45 + 180
                             b2 = r.angle + 45 + 180
+                            Viewer.sounds["playerdamage"].play()
                             Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
                         r.kill()
                 
@@ -1414,6 +1430,7 @@ class Viewer():
                             e.hitpoints -= r.damage
                             b1 = r.angle -45 + 180
                             b2 = r.angle + 45 + 180
+                            Viewer.sounds["enemydamage"].play()
                             Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
                         r.kill()
                 
@@ -1432,7 +1449,9 @@ class Viewer():
             
             hppercent = self.player1.hitpoints / Game.playerhitpoints
             g = max(0, 255 * hppercent)
-            r = 255 - g
+            g = min(255 * hppercent, 255)
+            r = max(0, 255 - g)
+            r = min(255 - g, 255)
             #print("g={}".format(255 * hppercent))
             pygame.draw.rect(self.screen, (255,255,0), (0,2,self.player1.hitpoints+4,16))
             pygame.draw.rect(self.screen, (r,g,0), (2,4,self.player1.hitpoints,12))
