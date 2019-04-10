@@ -499,6 +499,39 @@ class Turret(VectorSprite):
     def kill(self):
         VectorSprite.kill(self)
         Explosion(pos = self.pos, red = 200, dred = 50, minsparks = 50, maxsparks = 100, max_age = 1)
+
+class NumberSprite(VectorSprite):
+    
+    def _overwrite_parameters(self):
+        self.old = 0
+        self.sign = 1
+        self.size = 60
+        self.shrinkspeed = 5
+        self.shrinkduration = 5
+   
+    def create_image(self):
+        ##make_text(msg="pygame is cool", fontcolor=(255, 0, 255), fontsize=42, font=None):
+        
+        d = ((int(self.age * self.shrinkspeed )) % self.shrinkduration)    # factor behind self.age = speed. number behind % = duration
+        if d < self.old:
+            # huch.... schrumpfung
+            self.sign *= -1
+        self.old = d
+        self.size += d * self.sign
+        #print("Size is :", self.size)
+        self.image = make_text(msg = "21", fontsize = self.size, fontcolor=(random.randint(80,150),0,random.randint(180,250))) 
+        self.image.set_colorkey((0,0,0))
+        self.image.convert_alpha()
+        self.rect = self.image.get_rect()
+        
+    def update(self, seconds):
+        VectorSprite.update(self, seconds)
+        oldcenter = self.rect.center
+        self.create_image()
+        self.rect.center = oldcenter
+   
+    
+    
  
 class Guardian(VectorSprite):
     
@@ -611,15 +644,17 @@ class Player(VectorSprite):
 class Tile(VectorSprite):
     
     def _overwrite_parameters(self):
-        self.tilestatus = 0
+        #self.tile_status = 0
         self._layer = 1 # so that player will be over Tile, not below it
-        self.hitpoints, self.hitpoints_old = 200, 200
-        if random.random() < 0.1:
+        if self.tile_status == 0:
+            self.hitpoints, self.hitpoints_old = 200, 200
+        elif self.tile_status == 1:
+        #if random.random() < 0.1:
             self.hitpoints, self.hitpoints_old = 800, 800
-            self.tilestatus = 1
-        if random.random() < 0.02:
+        #    self.tile_status = 1
+        elif self.tile_status == 2:
             self.hitpoints, self.hitpoints_old = 100, 100
-            self.tilestatus = 2
+        #    self.tile_status = 2
         
         self.static = True
     
@@ -633,9 +668,9 @@ class Tile(VectorSprite):
     
     def create_image(self):
         self.image = pygame.Surface((Game.tilesize,Game.tilesize))
-        if self.tilestatus == 1:
+        if self.tile_status == 1:
             color = (255,165,0)
-        elif self.tilestatus == 2:
+        elif self.tile_status == 2:
             color = (0,255,0)
             hppercent = self.hitpoints / 100
             g = max(0, 255 * hppercent)
@@ -645,7 +680,7 @@ class Tile(VectorSprite):
             c = max(0, 255-self.hitpoints)
             c = min(255, 255-self.hitpoints) 
             #print("c=",c)
-            color = (c,c,c)
+            color = (100,100,100)
         self.image.fill(color)
         pygame.draw.rect(self.image, (255,255,255), (0,0,Game.tilesize,Game.tilesize), 1)
         self.image.set_colorkey((0,0,0))
@@ -832,7 +867,17 @@ class Viewer():
         self.joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
         for j in self.joysticks:
             j.init()
+        self.levels = {}
+        #self.active_level = 0
+        for i in range(3):
+            self.active_level = i
+            self.generate_level()
+            self.levels[i] = self.lines
+        self.active_level = 0
+            
         self.prepare_sprites()
+        self.lines = self.levels[0]
+        self.paint_level() # painted current self.lines 
         self.prepare_sounds()
         self.loadbackground()
         Game.menu = Game.mainmenu[:]
@@ -883,13 +928,25 @@ class Viewer():
         
             
     def generate_level(self):
+        """legend:
+          0.... grey tile
+          1.... golden tile
+          2.... green tile
+          @.... player start
+          !.... turret
+          +.... guardian
+          A.... teleport source
+          a.... teleport destination
+          Bb, Cc etc ... teleports
+          """
         xtiles = (Viewer.width-10) // Game.tilesize
         ytiles = (Viewer.height-30) // Game.tilesize
         self.lines = []
         for y in range(ytiles):
             line = []
             for x in range(xtiles):
-                line.append("B")
+                what = random.choice((0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,2))
+                line.append(str(what))
             self.lines.append(line)
         #print(self.lines) # level is in self.lines
         howmuch = {"none": 0,
@@ -898,8 +955,8 @@ class Viewer():
                    "lots": 15 }
         
         #------ kill all enemies -----
-        for e in self.enemygroup:
-             e.kill()
+        #for e in self.enemygroup:
+        #     e.kill()
             
                 
         # ---- create rectangular room ----
@@ -909,12 +966,12 @@ class Viewer():
             w = random.randint(5,10)
             h = random.randint(5,10)
             self.rectangle_hole(x, y, w, h )
-            if random.random() < 1:
-                Turret(pos=pygame.math.Vector2((x)*Game.tilesize, -(y)*Game.tilesize))
-            if random.random() < 1:
-                xg = (x - w // 2 ) * Game.tilesize #+10
-                yg = (y - h // 2 ) * Game.tilesize #-30
-                Guardian(pos = pygame.math.Vector2(xg,-yg))
+            #if random.random() < 1:
+            #    Turret(pos=pygame.math.Vector2((x)*Game.tilesize, -(y)*Game.tilesize))
+            #if random.random() < 1:
+            #    xg = (x - w // 2 ) * Game.tilesize #+10
+            #    yg = (y - h // 2 ) * Game.tilesize #-30
+            #    Guardian(pos = pygame.math.Vector2(xg,-yg))
         # ---- create round room (hole) -------
         for _ in range(howmuch[Game.holes]):
             self.round_hole(random.randint(5, len(line)-5), random.randint(5, len(self.lines)-5), random.randint(2,5))
@@ -925,12 +982,41 @@ class Viewer():
         
         # rects 
         
+        #----- teleports
+        if self.active_level == 0:
+            #self.lines[random.randint(0,ytiles)][random.randint(0,xtiles)] = "A"
+            x=random.randint(0, xtiles)
+            y=random.randint(0, ytiles)
+            char = self.lines[y][x]
+            if char in ".0":
+                self.lines[y][x] = "A"
+        elif self.active_level == 1:
+            x=random.randint(0, xtiles)
+            y=random.randint(0, ytiles)
+            char = self.lines[y][x]
+            if char in ".0":
+                self.lines[y][x] = "a"
+            x=random.randint(0, xtiles)
+            y=random.randint(0, ytiles)
+            char = self.lines[y][x]
+            if char in ".0":
+                self.lines[y][x] = "B"
+        elif self.active_level == 2:
+            x=random.randint(0, xtiles)
+            y=random.randint(0, ytiles)
+            char = self.lines[y][x]
+            if char in ".0":
+                self.lines[y][x] = "b"
+        
+            
+        
         # ---- cannon for each enemy1
-        for e in self.enemygroup:
-            Cannon(bossnumber = e.number) 
-        
-        
-        self.paint_level()
+        #for e in self.enemygroup:
+        #    Cannon(bossnumber = e.number) 
+        #print("das ist self.lines")
+        #print(self.lines)
+        #self.levels.append(self.lines)        
+        #self.paint_level()
                 
         
     def paint_level(self):
@@ -941,8 +1027,8 @@ class Viewer():
          for y, line in enumerate(self.lines):
               for x, char in enumerate(line):
                   p = pygame.math.Vector2(x*Game.tilesize + 10, -y*Game.tilesize - 30)
-                  if char == "B":
-                      Tile(pos=p, color=(100,100,100))
+                  if char == "0" or char=="1" or char =="2":
+                      Tile(pos=p, tile_status=int(char))
           #for x in range(10, Viewer.width, 20):
           #  for y in range(30, Viewer.height, 20):
           #      Tile(pos=pygame.math.Vector2(x, -y), color=(16,16,16))
@@ -967,6 +1053,7 @@ class Viewer():
         self.tilegroup = pygame.sprite.Group()
         self.enemygroup = pygame.sprite.Group()
         self.guardiangroup = pygame.sprite.Group()
+        self.numbergroup = pygame.sprite.Group()
         
         Mouse.groups = self.allgroup, self.mousegroup
         #EvilMonster.groups = self.allgroup, self.monstergroup
@@ -981,6 +1068,7 @@ class Viewer():
         Tile.groups = self.allgroup, self.tilegroup
         Turret.groups = self.allgroup, self.enemygroup
         Guardian.groups = self.allgroup, self.guardiangroup
+        NumberSprite.groups = self.allgroup, self.numbergroup
 
    
         # ------ player1,2,3: mouse, keyboard, joystick ---
@@ -1239,6 +1327,7 @@ class Viewer():
         self.rot = 255
         self.rotdelta = 5
         self.next_song() # play next song
+        NumberSprite(pos = pygame.math.Vector2(100,-100))
         
         #self.menutime = False
         #self.menudeltatime = 0
@@ -1264,6 +1353,15 @@ class Viewer():
                     running = False
                 # ------- pressed and released key ------
                 elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_1:
+                        self.lines = self.levels[0]
+                        self.paint_level() # painted current self.lines 
+                    if event.key == pygame.K_2:
+                        self.lines = self.levels[1]
+                        self.paint_level() # painted current self.lines 
+                    if event.key == pygame.K_3:
+                        self.lines = self.levels[2]
+                        self.paint_level() # painted current self.lines 
                     if event.key == pygame.K_p:
                         if not Game.peace:
                             Game.peace = True
@@ -1349,7 +1447,7 @@ class Viewer():
                     for t in crashgroup:
                          # elastic_collision(p, m)
                          t.hitpoints -= 1
-                         if t.tilestatus == 2:
+                         if t.tile_status == 2:
                              #healing tile
                             p.hitpoints += 1
                             Viewer.sounds["playerhealing"].play()
@@ -1381,9 +1479,9 @@ class Viewer():
                     crashgroup = pygame.sprite.spritecollide(r, self.tilegroup,
                                 False, pygame.sprite.collide_rect)
                     for t in crashgroup:
-                        print("r.bossnr, t.tilest", r.bossnumber, t.tilestatus)
+                        print("r.bossnr, t.tilest", r.bossnumber, t.tile_status)
                         if r.bossnumber == 0:
-                            if t.tilestatus == 0:
+                            if t.tile_status == 0:
                                 print("hitting normal tile")
                                 # normal
                                 b1 = r.angle -45 + 180
@@ -1391,7 +1489,7 @@ class Viewer():
                                 Viewer.sounds["hitground"].play()
                                 Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=128, green=128, blue=128, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
                                 t.hitpoints -= r.damage
-                            elif t.tilestatus == 1:
+                            elif t.tile_status == 1:
                                 # golden
                                 b1 = r.angle -45 + 180
                                 b2 = r.angle + 45 + 180
