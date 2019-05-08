@@ -302,6 +302,8 @@ class VectorSprite(pygame.sprite.Sprite):
             self.age = 0 # age in seconds
         if "warp_on_edge" not in kwargs:
             self.warp_on_edge = False
+        if "msg" not in kwargs:
+            self.msg = ""
 
     def kill(self):
         if self.number in self.numbers:
@@ -519,7 +521,7 @@ class NumberSprite(VectorSprite):
         self.old = d
         self.size += d * self.sign
         #print("Size is :", self.size)
-        self.image = make_text(msg = "21", fontsize = self.size, fontcolor=(random.randint(80,150),0,random.randint(180,250))) 
+        self.image = make_text(msg = self.msg, fontsize = self.size, fontcolor=(random.randint(80,150),0,random.randint(180,250))) 
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
         self.rect = self.image.get_rect()
@@ -762,7 +764,7 @@ class Rocket(VectorSprite):
         self.kill_on_edge=True
         self.radius = 3
         self.mass = 20
-        self.damage = 10
+        self.damage = 500
         self.color = (255,156,0)
         self.speed = Game.rocketspeed
 
@@ -988,25 +990,44 @@ class Viewer():
             x=random.randint(0, xtiles)
             y=random.randint(0, ytiles)
             char = self.lines[y][x]
-            if char in ".0":
-                self.lines[y][x] = "A"
+            #if char in ".0":
+            self.lines[y][x] = "A"
         elif self.active_level == 1:
             x=random.randint(0, xtiles)
             y=random.randint(0, ytiles)
             char = self.lines[y][x]
-            if char in ".0":
-                self.lines[y][x] = "a"
+            #if char in ".0":
+            
+            for dy in range(-2,3):
+                for dx in range(-2,3):
+                    try:
+                        self.lines[y+dy][x+dx] = "."
+                    except:
+                        pass
+            self.lines[y][x] = "a"
+            
+            
+            
             x=random.randint(0, xtiles)
             y=random.randint(0, ytiles)
             char = self.lines[y][x]
-            if char in ".0":
-                self.lines[y][x] = "B"
+            
+            #if char in ".0":
+            self.lines[y][x] = "B"
         elif self.active_level == 2:
             x=random.randint(0, xtiles)
             y=random.randint(0, ytiles)
+            print(x, y)
             char = self.lines[y][x]
-            if char in ".0":
-                self.lines[y][x] = "b"
+            #if char in ".0":
+            for dy in range(-2,3):
+                for dx in range(-2,3):
+                    try:
+                        self.lines[y+dy][x+dx] = "."
+                    except:
+                        pass
+            
+            self.lines[y][x] = "b"
         
             
         
@@ -1029,10 +1050,26 @@ class Viewer():
                   p = pygame.math.Vector2(x*Game.tilesize + 10, -y*Game.tilesize - 30)
                   if char == "0" or char=="1" or char =="2":
                       Tile(pos=p, tile_status=int(char))
+                  elif char in "abcABC":
+                      NumberSprite(pos=p, msg=char)
+                      
           #for x in range(10, Viewer.width, 20):
           #  for y in range(30, Viewer.height, 20):
           #      Tile(pos=pygame.math.Vector2(x, -y), color=(16,16,16))
    
+    def change_level(self, level_nr):
+        """changes into level # level_nr"""
+        self.lines = self.levels[level_nr]
+        for n in self.numbergroup:
+            n.kill()
+        self.paint_level() # painted current self.lines 
+                    
+    def go_to_teleport(self, teleport):
+        """moves player to teleport with letter in teleport"""
+        for n in self.numbergroup:
+                                if n.msg == teleport:
+                                    self.player1.pos = pygame.math.Vector2(n.pos.x, n.pos.y)
+    
     def prepare_sounds(self):
         
         Viewer.sounds["hitground"] = pygame.mixer.Sound(os.path.join("data", "player_hits_ground.wav"))
@@ -1354,14 +1391,17 @@ class Viewer():
                 # ------- pressed and released key ------
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_1:
-                        self.lines = self.levels[0]
-                        self.paint_level() # painted current self.lines 
+                        self.change_level(0)
+                        #self.lines = self.levels[0]
+                        #self.paint_level() # painted current self.lines 
                     if event.key == pygame.K_2:
-                        self.lines = self.levels[1]
-                        self.paint_level() # painted current self.lines 
+                        self.change_level(1)
+                        #self.lines = self.levels[1]
+                        #self.paint_level() # painted current self.lines 
                     if event.key == pygame.K_3:
-                        self.lines = self.levels[2]
-                        self.paint_level() # painted current self.lines 
+                        self.change_level(2)
+                        #self.lines = self.levels[2]
+                        #self.paint_level() # painted current self.lines 
                     if event.key == pygame.K_p:
                         if not Game.peace:
                             Game.peace = True
@@ -1519,6 +1559,23 @@ class Viewer():
                             Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
                         r.kill()
                 
+                #------ between player and NumberSprite ------
+                for p in self.playergroup:
+                    crashgroup = pygame.sprite.spritecollide(p,self.numbergroup,
+                                 False, pygame.sprite.collide_rect)
+                    for n in crashgroup:
+                        
+                        if n.msg == "A":
+                            # teleport to level 1
+                            self.change_level(level_nr = 1)
+                            self.go_to_teleport(teleport = "a")
+                        elif n.msg == "B":
+                            # teleport to level 2
+                            self.change_level(level_nr = 2)
+                            self.go_to_teleport(teleport = "b")
+                        
+                    
+
                 #------ between rocket and enemy ------
                 for e in self.enemygroup:
                     crashgroup = pygame.sprite.spritecollide(e, self.rocketgroup,
