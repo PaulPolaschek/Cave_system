@@ -1536,6 +1536,8 @@ class Viewer():
                                 Viewer.sounds["hitground"].play()
                                 Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=255, green=165, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
                                 t.hitpoints -= r.damage
+                                if t.hitpoints <= 0:
+                                    Game.gold += 10
                             else:
                                 # healing
                                 Viewer.sounds["playerhealing"].play()
