@@ -469,9 +469,12 @@ class Cannon(VectorSprite):
         mousevector = pygame.math.Vector2(0,0)
         if self.bossnumber ==  0:
              # it's the cannon of player1
-             mousevector = pygame.math.Vector2(pygame.mouse.get_pos()[0],
+             if self.mouseaim:
+                  mousevector = pygame.math.Vector2(pygame.mouse.get_pos()[0],
                                        -pygame.mouse.get_pos()[1])
-             
+             else:
+                 mousevector = pygame.math.Vector2(1,0)
+                 mousevector.rotate_ip(VectorSprite.numbers[self.bossnumber].angle)
         elif 0 in VectorSprite.numbers:
              mousevector = VectorSprite.numbers[0].pos
              # its an enemy cannon and should aim at player
@@ -630,10 +633,18 @@ class Player(VectorSprite):
         v = pygame.math.Vector2(Game.playerspeed,0)
         v.rotate_ip(self.angle)
         self.move += v
-        Flame(bossnumber=self.number, pos = self.pos)
+        Flame(bossnumber=self.number, pos = self.pos, delta = 180)
         #if random.random() < 0.2:
             #Smoke(pos = self.pos, gravity = None, max_age=3.0)
-            
+    
+    def move_backward(self):
+        v = pygame.math.Vector2(Game.playerspeed,0)
+        v.rotate_ip(self.angle)
+        self.move -= v
+        Flame(bossnumber=self.number, pos = self.pos, delta = 30)
+        Flame(bossnumber=self.number, pos = self.pos, delta = -30)
+        
+        
         
     
     def create_image(self):
@@ -746,7 +757,7 @@ class Flame(VectorSprite):
     def update(self, seconds):
         VectorSprite.update(self, seconds)
         try:
-            self.set_angle(VectorSprite.numbers[self.bossnumber].angle-180)
+            self.set_angle(VectorSprite.numbers[self.bossnumber].angle-self.delta)
         except:
             print("problem with bossnumber", self.bossnumber)
 
@@ -1139,7 +1150,7 @@ class Viewer():
    
         # ------ player1,2,3: mouse, keyboard, joystick ---
         self.player1 =  Player(bounce_on_edge = True, pos=pygame.math.Vector2(Viewer.width/2,-Viewer.height/2))
-        self.cannon1 = Cannon(bossnumber=self.player1.number)
+        self.cannon1 = Cannon(bossnumber=self.player1.number, mouseaim = False)
         self.fuel1 = Refuel()
         print("cannon1 has number", self.cannon1.number)
         self.mouse1 = Mouse(control="mouse", color=(255,0,0))
@@ -1494,9 +1505,7 @@ class Viewer():
                     self.player1.fuel -= 1
             if pressed_keys[pygame.K_s]:
                 if self.player1.fuel > 0:
-                    v = pygame.math.Vector2(1,0)
-                    v.rotate_ip(self.player1.angle)
-                    self.player1.move += -v
+                    self.player1.move_backward()
                     self.player1.fuel -= 1
     
             # ------ mouse handler ------
@@ -1506,6 +1515,14 @@ class Viewer():
                 self.player1.move_forward()
             if left:
                 self.player1.fire(self.cannon1.angle)
+            if middle:
+                self.cannon1.mouseaim = True
+            else:
+                self.cannon1.mouseaim = False
+                # rotate player1 toward mouse
+                mv = pygame.math.Vector2(pygame.mouse.get_pos()[0], -pygame.mouse.get_pos()[1])
+                diff = mv - self.player1.pos 
+                self.player1.angle = -diff.angle_to(pygame.math.Vector2(1,0))
             oldleft, oldmiddle, oldright = left, middle, right
 
           
@@ -1573,6 +1590,8 @@ class Viewer():
                                 Viewer.sounds["hitground"].play()
                                 Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=255, green=165, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
                                 t.hitpoints -= r.damage
+                                if t.hitpoints <= 0:
+                                    Game.gold += 1
                             else:
                                 # healing
                                 Viewer.sounds["playerhealing"].play()
@@ -1601,7 +1620,7 @@ class Viewer():
                     crashgroup = pygame.sprite.spritecollide(p,self.fuelgroup,
                                  False, pygame.sprite.collide_rect)
                     for f in crashgroup:
-                        p.fuel += 1
+                        p.fuel += 10
                         
                 
                 #------ between player and NumberSprite ------
