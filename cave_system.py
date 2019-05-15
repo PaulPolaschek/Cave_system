@@ -502,6 +502,32 @@ class Turret(VectorSprite):
         VectorSprite.kill(self)
         Explosion(pos = self.pos, red = 200, dred = 50, minsparks = 50, maxsparks = 100, max_age = 1)
 
+class Refuel(VectorSprite):
+    
+    def _overwrite_parameters(self):
+        self.bounce_on_edge = True
+    
+    def create_image(self):
+        self.image = make_text(msg = "fuel", fontcolor = (0,0,random.randint(100,255)), fontsize = 40)
+        self.image.set_colorkey((0,0,0))
+        self.image.convert_alpha()
+        self.rect = self.image.get_rect()
+        
+    def update(self, seconds):
+        VectorSprite.update(self,seconds)
+        if random.random() < 0.05:
+            target = pygame.math.Vector2(random.randint(0, Viewer.width),
+                                         random.randint(-Viewer.height,0))
+            v =  target - self.pos
+            v.normalize_ip()
+            v *= 15
+            #v = pygame.math.Vector2(5,0)
+            #v.rotate_ip(random.randint(0, 30))
+            self.move = v
+        oldcenter = self.rect.center
+        self.create_image()
+        self.rect.center = oldcenter
+
 class NumberSprite(VectorSprite):
     
     def _overwrite_parameters(self):
@@ -575,6 +601,7 @@ class Player(VectorSprite):
         self.mass = 400
         self.radius = 25
         self._layer = 8
+        self.fuel = 1000
         self.hitpoints = Game.playerhitpoints
         self.gravity = pygame.math.Vector2(0, -0.1)
         self.oldpos = pygame.math.Vector2(self.pos.x,self.pos.y)
@@ -1091,6 +1118,7 @@ class Viewer():
         self.enemygroup = pygame.sprite.Group()
         self.guardiangroup = pygame.sprite.Group()
         self.numbergroup = pygame.sprite.Group()
+        self.fuelgroup = pygame.sprite.Group()
         
         Mouse.groups = self.allgroup, self.mousegroup
         #EvilMonster.groups = self.allgroup, self.monstergroup
@@ -1106,11 +1134,13 @@ class Viewer():
         Turret.groups = self.allgroup, self.enemygroup
         Guardian.groups = self.allgroup, self.guardiangroup
         NumberSprite.groups = self.allgroup, self.numbergroup
+        Refuel.groups = self.allgroup, self.fuelgroup
 
    
         # ------ player1,2,3: mouse, keyboard, joystick ---
         self.player1 =  Player(bounce_on_edge = True, pos=pygame.math.Vector2(Viewer.width/2,-Viewer.height/2))
         self.cannon1 = Cannon(bossnumber=self.player1.number)
+        self.fuel1 = Refuel()
         print("cannon1 has number", self.cannon1.number)
         self.mouse1 = Mouse(control="mouse", color=(255,0,0))
         #self.mouse2 = Mouse(control='keyboard1', color=(255,255,0))
@@ -1369,6 +1399,7 @@ class Viewer():
         #self.menutime = False
         #self.menudeltatime = 0
         while running:
+            pygame.display.set_caption("fuel: {}".format(self.player1.fuel))
             milliseconds = self.clock.tick(self.fps) #
             #if self.menutime:
             #    self.menudeltatime += milliseconds / 1000
@@ -1458,18 +1489,23 @@ class Viewer():
             if pressed_keys[pygame.K_d]:
                 self.player1.rotate(-3)
             if pressed_keys[pygame.K_w]:
-                self.player1.move_forward()
+                if self.player1.fuel > 0:
+                    self.player1.move_forward()
+                    self.player1.fuel -= 1
             if pressed_keys[pygame.K_s]:
-                v = pygame.math.Vector2(1,0)
-                v.rotate_ip(self.player1.angle)
-                self.player1.move += -v
+                if self.player1.fuel > 0:
+                    v = pygame.math.Vector2(1,0)
+                    v.rotate_ip(self.player1.angle)
+                    self.player1.move += -v
+                    self.player1.fuel -= 1
     
             # ------ mouse handler ------
             left,middle,right = pygame.mouse.get_pressed()
             
             if right:
                 self.player1.move_forward()
-            
+            if left:
+                self.player1.fire(self.cannon1.angle)
             oldleft, oldmiddle, oldright = left, middle, right
 
           
@@ -1514,6 +1550,7 @@ class Viewer():
                          #self.cannon1.center = p.rect.center
                         
                 
+                
                 #------ between Tile and rocket ------
                 for r in self.rocketgroup:
                     crashgroup = pygame.sprite.spritecollide(r, self.tilegroup,
@@ -1536,8 +1573,6 @@ class Viewer():
                                 Viewer.sounds["hitground"].play()
                                 Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=255, green=165, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
                                 t.hitpoints -= r.damage
-                                if t.hitpoints <= 0:
-                                    Game.gold += 10
                             else:
                                 # healing
                                 Viewer.sounds["playerhealing"].play()
@@ -1560,6 +1595,14 @@ class Viewer():
                             Viewer.sounds["playerdamage"].play()
                             Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
                         r.kill()
+                
+                #------ between player and Refuel --------
+                for p in self.playergroup:
+                    crashgroup = pygame.sprite.spritecollide(p,self.fuelgroup,
+                                 False, pygame.sprite.collide_rect)
+                    for f in crashgroup:
+                        p.fuel += 1
+                        
                 
                 #------ between player and NumberSprite ------
                 for p in self.playergroup:
@@ -1610,11 +1653,18 @@ class Viewer():
             r = max(0, 255 - g)
             r = min(255 - g, 255)
             #print("g={}".format(255 * hppercent))
+            # hitpoints
             pygame.draw.rect(self.screen, (255,255,0), (0,2,self.player1.hitpoints+4,16))
             pygame.draw.rect(self.screen, (r,g,0), (2,4,self.player1.hitpoints,12))
+            # fuel
+            pygame.draw.rect(self.screen, (255,255,0), (0,Viewer.height-16,self.player1.fuel+4,16))
+            pygame.draw.rect(self.screen, (0,0,255), (2,Viewer.height-14,self.player1.fuel,12))
+            
+                        
             
             # write text over sprites
             write(self.screen, "hp: {}".format(self.player1.hitpoints), x=10, y=2, fontsize=14)
+            write(self.screen, "fuel: {}".format(self.player1.fuel), x=10, y=Viewer.height-16, fontsize = 14, color = (255,255,255))
             write(self.screen, "FPS: {:8.3}  rockets: {} gold: {}".format(self.clock.get_fps(),
             Game.rockets, Game.gold), x=1150, y=0, fontsize = 14, color = (255,255,255))
             
