@@ -1105,8 +1105,8 @@ class Viewer():
     def go_to_teleport(self, teleport):
         """moves player to teleport with letter in teleport"""
         for n in self.numbergroup:
-                                if n.msg == teleport:
-                                    self.player1.pos = pygame.math.Vector2(n.pos.x, n.pos.y)
+            if n.msg == teleport:
+                self.player1.pos = pygame.math.Vector2(n.pos.x, n.pos.y)
     
     def prepare_sounds(self):
         
@@ -1548,6 +1548,13 @@ class Viewer():
                              p.hitpoints -= 1
                              Viewer.sounds["hitground"].play()
                              Explosion(t.pos, red=200, dred=50, minsparks=1, maxsparks=2)
+                         
+                         
+                         # teleport player away from tile
+                         diff = p.pos - t.pos
+                         diff.normalize_ip()
+                         p.pos += diff * 6
+                         
                          #elastic_collision(t,p)                    
                          #v = p.move * -1
                          #ok = True
@@ -1559,7 +1566,7 @@ class Viewer():
                          #   v *= 4 # distance to wall
                          #   p.pos += v
                          #   #p.pos += (p.move * -1)
-                         p.pos = pygame.math.Vector2(p.oldpos.x, p.oldpos.y)
+                         #p.pos = pygame.math.Vector2(p.oldpos.x, p.oldpos.y)
                          p.move = pygame.math.Vector2(0,0)
                          p.rect.center = ( round(p.pos.x, 0), -round(p.pos.y, 0) )
                          self.cannon1.update(0)
