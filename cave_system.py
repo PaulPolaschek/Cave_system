@@ -466,16 +466,19 @@ class Cannon(VectorSprite):
         #    cannon is from player and aims at mouse
         # else:
         #    cannon aims at player (number==0)
-        mousevector = pygame.math.Vector2(0,0)
+        #mousevector = pygame.math.Vector2(0,0)
         if self.friend:
              # it's the cannon of player1
              if self.mouseaim:
-                  mousevector = pygame.math.Vector2(pygame.mouse.get_pos()[0],
+                  v = pygame.math.Vector2(pygame.mouse.get_pos()[0],
                                        -pygame.mouse.get_pos()[1])
+                  diff =  self.pos - v
+                  self.set_angle(-diff.angle_to(rightvector)+180)
              else:
-                 mousevector = pygame.math.Vector2(1,0)
+                 #mousevector = pygame.math.Vector2(1,0)
                  #print("searching bossnumber:", self.bossnumber)
-                 mousevector.rotate_ip(VectorSprite.numbers[self.bossnumber].angle)
+                 #mousevector.rotate_ip(VectorSprite.numbers[self.bossnumber].angle)
+                 self.set_angle(VectorSprite.numbers[self.bossnumber].angle)
         else:
             # its an enemy cannon and should aim at player
             # unfriendly cannon. 0 and 1 are all playernumbers
@@ -621,6 +624,10 @@ class Player(VectorSprite):
         self.mass = 400
         self.radius = 25
         self._layer = 8
+        if self.number == 0:
+            self.color = (255, 255, 0)
+        elif self.number == 1:
+            self.color = (255,0,255)
         self.fuel = 1000
         self.hitpoints = Game.playerhitpoints
         self.gravity = pygame.math.Vector2(0, -0.1)
@@ -666,7 +673,7 @@ class Player(VectorSprite):
     
     def create_image(self):
         self.image = pygame.Surface((Game.tilesize,Game.tilesize))
-        pygame.draw.polygon(self.image, (255, 255, 0), ((0,0),(Game.tilesize,Game.tilesize//2),(0,Game.tilesize),(Game.tilesize//2,Game.tilesize//2)))
+        pygame.draw.polygon(self.image, self.color, ((0,0),(Game.tilesize,Game.tilesize//2),(0,Game.tilesize),(Game.tilesize//2,Game.tilesize//2)))
         #pygame.draw.line(self.image, (self.rot, 0, 0), (25,25), (50,25),5)
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
@@ -1072,7 +1079,7 @@ class Viewer():
         elif self.active_level == 2:
             x=random.randint(0, xtiles)
             y=random.randint(0, ytiles)
-            print(x, y)
+            #print(x, y)
             char = self.lines[y][x]
             #if char in ".0":
             for dy in range(-2,3):
@@ -1522,18 +1529,23 @@ class Viewer():
 
             # if pressed_keys[pygame.K_LSHIFT]:
                 # paint range circles for cannons
+            # ---------- player 2 ------------------
             if pressed_keys[pygame.K_a]:
-                self.player1.rotate(3)
+                self.player2.rotate(3)
             if pressed_keys[pygame.K_d]:
-                self.player1.rotate(-3)
+                self.player2.rotate(-3)
             if pressed_keys[pygame.K_w]:
-                if self.player1.fuel > 0:
-                    self.player1.move_forward()
-                    self.player1.fuel -= 1
+                if self.player2.fuel > 0:
+                    self.player2.move_forward()
+                    self.player2.fuel -= 1
             if pressed_keys[pygame.K_s]:
-                if self.player1.fuel > 0:
-                    self.player1.move_backward()
-                    self.player1.fuel -= 1
+                if self.player2.fuel > 0:
+                    self.player2.move_backward()
+                    self.player2.fuel -= 1
+            if pressed_keys[pygame.K_LSHIFT]:
+                self.player2.fire(self.cannon2.angle)
+    
+            
     
             # ------ mouse handler ------
             left,middle,right = pygame.mouse.get_pressed()
@@ -1607,10 +1619,10 @@ class Viewer():
                     crashgroup = pygame.sprite.spritecollide(r, self.tilegroup,
                                 False, pygame.sprite.collide_rect)
                     for t in crashgroup:
-                        print("r.bossnr, t.tilest", r.bossnumber, t.tile_status)
+                        #print("r.bossnr, t.tilest", r.bossnumber, t.tile_status)
                         if r.bossnumber == 0:
                             if t.tile_status == 0:
-                                print("hitting normal tile")
+                                #print("hitting normal tile")
                                 # normal
                                 b1 = r.angle -45 + 180
                                 b2 = r.angle + 45 + 180
