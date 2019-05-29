@@ -467,23 +467,40 @@ class Cannon(VectorSprite):
         # else:
         #    cannon aims at player (number==0)
         mousevector = pygame.math.Vector2(0,0)
-        if self.bossnumber ==  0:
+        if self.friend:
              # it's the cannon of player1
              if self.mouseaim:
                   mousevector = pygame.math.Vector2(pygame.mouse.get_pos()[0],
                                        -pygame.mouse.get_pos()[1])
              else:
                  mousevector = pygame.math.Vector2(1,0)
+                 #print("searching bossnumber:", self.bossnumber)
                  mousevector.rotate_ip(VectorSprite.numbers[self.bossnumber].angle)
-        elif 0 in VectorSprite.numbers:
-             mousevector = VectorSprite.numbers[0].pos
-             # its an enemy cannon and should aim at player
-        diffvector = mousevector - self.pos
-        angle = rightvector.angle_to(diffvector)
-        self.set_angle(angle)
+        else:
+            # its an enemy cannon and should aim at player
+            # unfriendly cannon. 0 and 1 are all playernumbers
+            target = None
+            distance = None
+            for playernumber in [0,1]:
+                if playernumber not in VectorSprite.numbers:
+                   continue
+                v = VectorSprite.numbers[playernumber].pos
+                diffvector = v - self.pos
+                if distance is None:
+                    distance = diffvector.length()
+                    target = VectorSprite.numbers[playernumber]
+                elif diffvector.length() < distance:
+                    distance = diffvector.length()
+                    target = VectorSprite.numbers[playernumber]
+                else:
+                    continue
+            # target is the player we are shooting at
+            diffvector = target.pos - self.pos
+            angle = rightvector.angle_to(diffvector)
+            self.set_angle(angle)
         
-        if self.bossnumber != 0:
-            # shoot !!!! at player !!!
+        if not self.friend:
+            # ----------- shoot !!!! at player !!! -----------------
             if not Game.peace and random.random() < 0.1:
                 m = pygame.math.Vector2(50,0)
                 m.rotate_ip(self.angle)
@@ -802,7 +819,7 @@ class Rocket(VectorSprite):
         self.kill_on_edge=True
         self.radius = 3
         self.mass = 20
-        self.damage = 500
+        self.damage = 1
         self.color = (255,156,0)
         self.speed = Game.rocketspeed
 
@@ -1149,10 +1166,20 @@ class Viewer():
 
    
         # ------ player1,2,3: mouse, keyboard, joystick ---
-        self.player1 =  Player(bounce_on_edge = True, pos=pygame.math.Vector2(Viewer.width/2,-Viewer.height/2))
-        self.cannon1 = Cannon(bossnumber=self.player1.number, mouseaim = False)
+        self.player1 =  Player(bounce_on_edge = True, pos=pygame.math.Vector2(Viewer.width/2-20,-Viewer.height/2))
+        self.player2 =  Player(bounce_on_edge = True, pos=pygame.math.Vector2(Viewer.width/2+20,-Viewer.height/2))
+        self.cannon1 = Cannon(bossnumber=self.player1.number, mouseaim = False, friend = True)
+        self.cannon2 = Cannon(bossnumber=self.player2.number, mouseaim = False, friend = True)
         self.fuel1 = Refuel()
-        print("cannon1 has number", self.cannon1.number)
+        self.enemy1 = Turret(pos = pygame.math.Vector2(500,-300))
+        self.enemy2 = Turret(pos = pygame.math.Vector2(500,-700))
+        self.cannon3 = Cannon(bossnumber = self.enemy1.number, friend = False)
+        self.cannon4 = Cannon(bossnumber = self.enemy2.number, friend = False)
+        self.enemy3 = Turret(pos = pygame.math.Vector2(1000,-300))
+        self.enemy4 = Turret(pos = pygame.math.Vector2(1000,-700))
+        self.cannon5 = Cannon(bossnumber = self.enemy3.number, friend = False)
+        self.cannon6 = Cannon(bossnumber = self.enemy4.number, friend = False)
+        #print("cannon1 has number", self.cannon1.number)
         self.mouse1 = Mouse(control="mouse", color=(255,0,0))
         #self.mouse2 = Mouse(control='keyboard1', color=(255,255,0))
         #self.mouse3 = Mouse(control="keyboard2", color=(255,0,255))
@@ -1370,7 +1397,7 @@ class Viewer():
             self.flytextgroup.draw(self.screen)
             # draw status
             write(self.screen, "gold: {} price: {} rockets: {} shootingangle: {} playerspeed: {} FPS: {:8.3}".format(
-            Game.gold, Game.price, Game.rockets, Game.shooting_angle, Game.playerspeed, self.clock.get_fps() ), x=10, y=10, color = (255,255,255))
+            Game.gold, Game.price, Game.rockets, Game.shooting_angle, Game.playerspeed, self.clock.get_fps() ), x=10, y=10, color = (255,0,255))
             
             #---- draw shootingangle
             if Game.menu == Game.playermenu:
@@ -1382,9 +1409,9 @@ class Viewer():
 
             # draw menu
             for a, line in enumerate(Game.menu):
-                write(self.screen, line, x=200, y= 100+a*25, color = (255,255,255))
+                write(self.screen, line, x=200, y= 100+a*25, color = (255,0,255))
             c = random.randint(200, 255)   #, random.randint(0,255), random.randint(0,255))
-            write(self.screen, "--->", x = 120, y = 100+cursor * 25, color = (c,c,c))
+            write(self.screen, "--->", x = 120, y = 100+cursor * 25, color = (c,0,c))
             pygame.display.flip()
         # --- menu fertig -----
         # exit pygame
