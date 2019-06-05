@@ -826,7 +826,7 @@ class Rocket(VectorSprite):
         self.kill_on_edge=True
         self.radius = 3
         self.mass = 20
-        self.damage = 1
+        self.damage = 20
         self.color = (255,156,0)
         self.speed = Game.rocketspeed
 
@@ -1131,6 +1131,7 @@ class Viewer():
         for n in self.numbergroup:
             if n.msg == teleport:
                 self.player1.pos = pygame.math.Vector2(n.pos.x, n.pos.y)
+                self.player2.pos = pygame.math.Vector2(n.pos.x, n.pos.y)
     
     def prepare_sounds(self):
         
@@ -1440,7 +1441,21 @@ class Viewer():
         self.rotdelta = 5
         self.next_song() # play next song
         NumberSprite(pos = pygame.math.Vector2(100,-100))
-        
+        # ------ joysticks ----
+        pygame.joystick.init()
+        self.joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+        for j in self.joysticks:
+            j.init()
+        jpushed = { 0 : {0:False, 1:False, 2:False, 3:False} ,
+                    1 : {0:False, 1:False, 2:False, 3:False}, 
+                    2 : {0:False, 1:False, 2:False, 3:False},
+                    3 : {0:False, 1:False, 2:False, 3:False}
+                   }
+        joldpushed = { 0 : {0:False, 1:False, 2:False, 3:False} ,
+                    1 : {0:False, 1:False, 2:False, 3:False}, 
+                    2 : {0:False, 1:False, 2:False, 3:False},
+                    3 : {0:False, 1:False, 2:False, 3:False}
+                   }
         #self.menutime = False
         #self.menudeltatime = 0
         while running:
@@ -1550,22 +1565,84 @@ class Viewer():
             # ------ mouse handler ------
             left,middle,right = pygame.mouse.get_pressed()
             
-            if right:
-                self.player1.move_forward()
-            if left:
-                self.player1.fire(self.cannon1.angle)
-            if middle:
-                self.cannon1.mouseaim = True
-            else:
-                self.cannon1.mouseaim = False
-                # rotate player1 toward mouse
-                mv = pygame.math.Vector2(pygame.mouse.get_pos()[0], -pygame.mouse.get_pos()[1])
-                diff = mv - self.player1.pos 
-                self.player1.angle = -diff.angle_to(pygame.math.Vector2(1,0))
+            #if right:
+            #    self.player1.move_forward()
+            #if left:
+            #    self.player1.fire(self.cannon1.angle)
+            #if middle:
+            #    self.cannon1.mouseaim = True
+            #else:
+            #    self.cannon1.mouseaim = False
+            #    # rotate player1 toward mouse
+            #    mv = pygame.math.Vector2(pygame.mouse.get_pos()[0], -pygame.mouse.get_pos()[1])
+            #    diff = mv - self.player1.pos 
+            #    self.player1.angle = -diff.angle_to(pygame.math.Vector2(1,0))
             oldleft, oldmiddle, oldright = left, middle, right
 
           
             
+            #--------------------
+            # ------ joystick handler -------
+            #mouses = [self.mouse4, self.mouse5]
+            for number, j in enumerate(self.joysticks):
+                # ====== number is di nummer des joysticks, oida! ====
+                if number == 0 or number==1:  #  or number==2 or number==3:
+                    #x = j.get_axis(0)
+                    #y = j.get_axis(1)
+                    #mouses[number].x += x * 20 # *2 
+                    #mouses[number].y += y * 20 # *2 
+                    buttons = j.get_numbuttons()
+                    hats = j.get_numhats()
+                    axes = j.get_numaxes()
+                    for b in range(buttons):
+                        #if b > 3:
+                        #    continue   # uns interessieren nur die ersten 4 buttons
+                        # ========= b is di interne nummer vom joystickbutton , kapiert? ============ print("was ist b?", b)
+                        
+                        
+                        pushed = j.get_button( b )
+                        print(j, pushed)
+                        # === pushed is demnach true oda foisch, gö?
+                        #jpushed[number][b] = False # prinzipiell amal auf falsch setzen
+                        jpushed[number][b] = pushed
+                        
+                        if b==0 and pushed :
+                            if number == 0:
+                                self.player1.fire(self.cannon1.angle)
+                            elif number == 1:
+                                self.player2.fire(self.cannon2.angle)
+                       
+                        joldpushed[number][b] = jpushed[number][b]
+                    #for a in range(axes):
+                    #    axis = j.get_axis(a) 
+                    #    print(j, axis)     
+                    for h in range(hats):
+                        if h != 0:
+                            continue 
+                        hat = j.get_hat(h)
+                        print(j, h, str(hat), hat)
+                        for pnr, p in enumerate((self.player1, self.player2)):
+                            if number == pnr:
+                                if hat[1] == 1:
+                                    p.move_forward()
+                                    p.fuel -= 1
+                                if hat[1] == -1:
+                                    p.move_backward()
+                                    p.fuel -= 1
+                                if hat[0] == -1:
+                                    p.rotate(3)
+                                if hat[0] == 1:
+                                    p.rotate(-3)
+                                    
+                            
+                            #if number == 0:
+                            #    self.player1.move_forward()
+                            #    self.player1.fuel -= 1
+                            #elif number == 1:
+                            #    self.player2.move_forward()
+                            #    self.player2.fuel -= 1
+
+                                
             self.allgroup.update(seconds)
 
 
@@ -1718,18 +1795,37 @@ class Viewer():
             r = max(0, 255 - g)
             r = min(255 - g, 255)
             #print("g={}".format(255 * hppercent))
-            # hitpoints
-            pygame.draw.rect(self.screen, (255,255,0), (0,2,self.player1.hitpoints+4,16))
-            pygame.draw.rect(self.screen, (r,g,0), (2,4,self.player1.hitpoints,12))
-            # fuel
-            pygame.draw.rect(self.screen, (255,255,0), (0,Viewer.height-16,self.player1.fuel+4,16))
-            pygame.draw.rect(self.screen, (0,0,255), (2,Viewer.height-14,self.player1.fuel,12))
+            # hitpoints 1
+            length = int( min(self.player1.hitpoints * .5 , self.width // 2) ) 
+            x1 = 0
+            pygame.draw.rect(self.screen, (255,255,0), (x1,2,length+4,16))
+            pygame.draw.rect(self.screen, (r,g,0), (x1+2,4,length,12))
+            # hitpoints 2
+            length = int( min(self.player2.hitpoints * .5 , self.width // 2) )
+            x1 = self.width // 2
+            pygame.draw.rect(self.screen, (255,0,255), (x1,2,length+4,16))
+            pygame.draw.rect(self.screen, (r,g,50), (x1+2,4,length,12))
+            
+            
+            
+            # fuel 1
+            length = int( min(self.player1.fuel * .5 , self.width // 2) )
+            x1 = 0
+            pygame.draw.rect(self.screen, (255,255,0), (x1,Viewer.height-16,length+4,16))
+            pygame.draw.rect(self.screen, (0,0,255), (x1 + 2,Viewer.height-14,length,12))
+            # fuel 2
+            length = int( min(self.player2.fuel * .5 , self.width // 2) )
+            x1 = self.width // 2
+            pygame.draw.rect(self.screen, (255,0,255), (x1,Viewer.height-16,length+4,16))
+            pygame.draw.rect(self.screen, (50,0,255), (x1 + 2,Viewer.height-14,length,12))
             
                         
             
             # write text over sprites
             write(self.screen, "hp: {}".format(self.player1.hitpoints), x=10, y=2, fontsize=14)
+            write(self.screen, "hp: {}".format(self.player2.hitpoints), x=self.width // 2 + 10, y=2, fontsize=14)
             write(self.screen, "fuel: {}".format(self.player1.fuel), x=10, y=Viewer.height-16, fontsize = 14, color = (255,255,255))
+            write(self.screen, "fuel: {}".format(self.player2.fuel), x=self.width // 2 + 10, y=Viewer.height-16, fontsize = 14, color = (255,255,255))
             write(self.screen, "FPS: {:8.3}  rockets: {} gold: {}".format(self.clock.get_fps(),
             Game.rockets, Game.gold), x=1150, y=0, fontsize = 14, color = (255,255,255))
             
