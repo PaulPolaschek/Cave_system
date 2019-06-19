@@ -651,7 +651,7 @@ class Player(VectorSprite):
                 v.rotate_ip(b)
                 v += self.move
                 Viewer.sounds["playershooting"].play()
-                Rocket(pos=p+t, move = v, angle = b, max_distance = Game.rocket_range,  bossnumber=0)
+                Rocket(pos=p+t, move = v, angle = b, max_distance = Game.rocket_range,  bossnumber=self.number)
        
     def move_forward(self):
         v = pygame.math.Vector2(Game.playerspeed,0)
@@ -732,8 +732,11 @@ class Tile(VectorSprite):
     
     def create_image(self):
         self.image = pygame.Surface((Game.tilesize,Game.tilesize))
+        c = min(255, 255-self.hitpoints)    
+        c = max(0, 255-self.hitpoints)
         if self.tile_status == 1:
-            color = (255,165,0)
+            c2 = min(255,c+165)
+            color = (255,c2,0)
         elif self.tile_status == 2:
             color = (0,255,0)
             hppercent = self.hitpoints / 100
@@ -741,10 +744,9 @@ class Tile(VectorSprite):
             r = 255 - g
             color = (r,g,0)
         else:
-            c = max(0, 255-self.hitpoints)
-            c = min(255, 255-self.hitpoints) 
-            #print("c=",c)
-            color = (100,100,100)
+            color = (c,c,c)
+        
+        
         self.image.fill(color)
         pygame.draw.rect(self.image, (255,255,255), (0,0,Game.tilesize,Game.tilesize), 1)
         self.image.set_colorkey((0,0,0))
@@ -1697,7 +1699,7 @@ class Viewer():
                                 False, pygame.sprite.collide_rect)
                     for t in crashgroup:
                         #print("r.bossnr, t.tilest", r.bossnumber, t.tile_status)
-                        if r.bossnumber == 0:
+                        if r.bossnumber == 0 or r.bossnumber == 1:
                             if t.tile_status == 0:
                                 #print("hitting normal tile")
                                 # normal
