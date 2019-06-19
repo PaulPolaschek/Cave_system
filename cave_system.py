@@ -67,9 +67,9 @@ def elastic_collision(sprite1, sprite2):
 
 class Flytext(pygame.sprite.Sprite):
     def __init__(self, x, y, text="hallo", color=(255, 0, 0),
-                 dx=0, dy=-50, duration=2, acceleration_factor = 1.0, delay = 0, fontsize=22):
+                 dx=0, dy=-50, duration=2, acceleration_factor = 1.0, delay = 0, fontsize=22, left_align=False):
         """a text flying upward and for a short time and disappearing"""
-        self._layer = 7  # order of sprite layers (before / behind other sprites)
+        self._layer = 7  # order of sprite layers lore / behind other sprites)
         pygame.sprite.Sprite.__init__(self, self.groups)  # THIS LINE IS IMPORTANT !!
         self.text = text
         self.r, self.g, self.b = color[0], color[1], color[2]
@@ -80,7 +80,11 @@ class Flytext(pygame.sprite.Sprite):
         self.acc = acceleration_factor  # if < 1, Text moves slower. if > 1, text moves faster.
         self.image = make_text(self.text, (self.r, self.g, self.b), fontsize)  # font 22
         self.rect = self.image.get_rect()
-        self.rect.center = (self.x, self.y)
+        if left_align:
+            #print(self.rect.width)
+            self.rect.center = (self.x - self.rect.width ,self.y)
+        else:
+            self.rect.center = (self.x, self.y)
         self.time = 0 - delay
 
     def update(self, seconds):
@@ -410,6 +414,10 @@ class Spark(VectorSprite):
     
     def create_image(self):
         self.image = pygame.Surface((10,3))
+        print("spark created with color", self.color)
+        if self.color == [0,0,0]:
+            self.color = (random.randint(0,255),random.randint(0,255),random.randint(0,255))
+        print("self color changed to", self.color)
         pygame.draw.line(self.image, self.color, (1,1),(random.randint(5,10),1), random.randint(1,3))
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
@@ -437,6 +445,7 @@ class Explosion():
                     c[farbe] = 0
                 if c[farbe] > 255:
                     c[farbe] = 255
+            print("sparkfarbe:", c)
             Spark(pos = self.pos, max_age = self.max_age, move = v, angle = a, color = c)
             
 
@@ -447,6 +456,7 @@ class Cannon(VectorSprite):
         self.kill_with_boss = True
         #print("cannon:",self.bossnumber)
         self._layer = 9
+        self.delta_angle = 0
         #print("ich bin kanone. meine bossnumber:", self.bossnumber)
         #print("meine eigene nummer", self.number)
         #print("meine boss position", VectorSprite.numbers[self.bossnumber].pos)
@@ -478,7 +488,7 @@ class Cannon(VectorSprite):
                  #mousevector = pygame.math.Vector2(1,0)
                  #print("searching bossnumber:", self.bossnumber)
                  #mousevector.rotate_ip(VectorSprite.numbers[self.bossnumber].angle)
-                 self.set_angle(VectorSprite.numbers[self.bossnumber].angle)
+                 self.set_angle(VectorSprite.numbers[self.bossnumber].angle+ self.delta_angle)
         else:
             # its an enemy cannon and should aim at player
             # unfriendly cannon. 0 and 1 are all playernumbers
@@ -650,7 +660,7 @@ class Player(VectorSprite):
                 v = pygame.math.Vector2(100,0)
                 v.rotate_ip(b)
                 v += self.move
-                Viewer.sounds["playershooting"].play()
+                #Viewer.sounds["playershooting"].play()
                 Rocket(pos=p+t, move = v, angle = b, max_distance = Game.rocket_range,  bossnumber=self.number)
        
     def move_forward(self):
@@ -732,11 +742,8 @@ class Tile(VectorSprite):
     
     def create_image(self):
         self.image = pygame.Surface((Game.tilesize,Game.tilesize))
-        c = min(255, 255-self.hitpoints)    
-        c = max(0, 255-self.hitpoints)
         if self.tile_status == 1:
-            c2 = min(255,c+165)
-            color = (255,c2,0)
+            color = (255,165,0)
         elif self.tile_status == 2:
             color = (0,255,0)
             hppercent = self.hitpoints / 100
@@ -744,9 +751,10 @@ class Tile(VectorSprite):
             r = 255 - g
             color = (r,g,0)
         else:
-            color = (c,c,c)
-        
-        
+            c = max(0, 255-self.hitpoints)
+            c = min(255, 255-self.hitpoints) 
+            #print("c=",c)
+            color = (100,100,100)
         self.image.fill(color)
         pygame.draw.rect(self.image, (255,255,255), (0,0,Game.tilesize,Game.tilesize), 1)
         self.image.set_colorkey((0,0,0))
@@ -829,14 +837,17 @@ class Rocket(VectorSprite):
         self.radius = 3
         self.mass = 20
         self.damage = 20
-        self.color = (255,156,0)
+        if self.bossnumber == 0:
+            self.color = (255,255,0)
+        elif self.bossnumber ==1:
+            self.color = (255,0,255)
         self.speed = Game.rocketspeed
 
 
 
     def create_image(self):
         self.image = pygame.Surface((10,5))
-        pygame.draw.polygon(self.image, (255, 255, 0),
+        pygame.draw.polygon(self.image, self.color,
             [(0,0),(7,0),(10,2),(10,3),(7,4),(0,4)])
         self.image.set_colorkey((0,0,0))
         self.image.convert_alpha()
@@ -889,6 +900,18 @@ class Viewer():
     def __init__(self, width=640, height=400, fps=30):
         """Initialize pygame, window, background, font,...
            default arguments """
+        self.helptext = """
+        play with two joysticks
+        rotate craft with pad
+        fire with button1
+        rotate cannon with shoulder buttons
+        
+        goal of game:
+        find fuel
+        shoot your way to the teleporter (big character)
+        reach level 3
+        
+        """
         pygame.mixer.pre_init(44100, -16, 2, 2048)
         pygame.init()
         Viewer.width = width    # make global readable
@@ -1051,15 +1074,25 @@ class Viewer():
         #----- teleports
         if self.active_level == 0:
             #self.lines[random.randint(0,ytiles)][random.randint(0,xtiles)] = "A"
-            x=random.randint(0, xtiles)
-            y=random.randint(0, ytiles)
-            char = self.lines[y][x]
+            while True:
+                x=random.randint(0, xtiles)
+                y=random.randint(0, ytiles)
+                try: 
+                    char = self.lines[y][x]
+                except:
+                    continue
+                break
             #if char in ".0":
             self.lines[y][x] = "A"
         elif self.active_level == 1:
-            x=random.randint(0, xtiles)
-            y=random.randint(0, ytiles)
-            char = self.lines[y][x]
+            while True:
+                x=random.randint(0, xtiles)
+                y=random.randint(0, ytiles)
+                try:
+                    char = self.lines[y][x]
+                except:
+                    continue
+                break
             #if char in ".0":
             
             for dy in range(-2,3):
@@ -1071,18 +1104,26 @@ class Viewer():
             self.lines[y][x] = "a"
             
             
-            
-            x=random.randint(0, xtiles)
-            y=random.randint(0, ytiles)
-            char = self.lines[y][x]
+            while True:
+                x=random.randint(0, xtiles)
+                y=random.randint(0, ytiles)
+                try:
+                    char = self.lines[y][x]
+                except:
+                    continue
+                break
             
             #if char in ".0":
             self.lines[y][x] = "B"
         elif self.active_level == 2:
-            x=random.randint(0, xtiles)
-            y=random.randint(0, ytiles)
-            #print(x, y)
-            char = self.lines[y][x]
+            while True:
+                x=random.randint(0, xtiles)
+                y=random.randint(0, ytiles)
+                try:
+                    char = self.lines[y][x]
+                except:
+                    continue
+                break
             #if char in ".0":
             for dy in range(-2,3):
                 for dx in range(-2,3):
@@ -1244,6 +1285,9 @@ class Viewer():
         running = True
         cursor = 0
         lastmenu = None
+        lines = self.helptext.splitlines()
+        for y, line in enumerate(lines):
+             Flytext(700, 500 + y*30, line, fontsize=50, duration=30, left_align=True)
         while running:
             milliseconds = self.clock.tick(self.fps) #
             seconds = milliseconds / 1000# - self.menudeltatime
@@ -1460,6 +1504,12 @@ class Viewer():
                    }
         #self.menutime = False
         #self.menudeltatime = 0
+        self.firesoundtime = 0
+        self.groundhitsoundtime = 0
+        self.playerdamagesoundtime = 0
+        self.playerhealingsoundtime = 0
+        self.enemydamagesoundtime = 0
+        self.menurun()
         while running:
             pygame.display.set_caption("fuel: {}".format(self.player1.fuel))
             milliseconds = self.clock.tick(self.fps) #
@@ -1603,17 +1653,48 @@ class Viewer():
                         
                         
                         pushed = j.get_button( b )
-                        print(j, pushed)
+                        #print(j, pushed)
                         # === pushed is demnach true oda foisch, gö?
                         #jpushed[number][b] = False # prinzipiell amal auf falsch setzen
                         jpushed[number][b] = pushed
                         
                         if b==0 and pushed :
                             if number == 0:
+                                if self.playtime > self.firesoundtime:
+                                     Viewer.sounds["playershooting"].play()
+                                     self.firesoundtime = self.playtime + 0.36
                                 self.player1.fire(self.cannon1.angle)
                             elif number == 1:
+                                if self.playtime > self.firesoundtime:
+                                     Viewer.sounds["playershooting"].play()
+                                     self.firesoundtime = self.playtime + 0.36
                                 self.player2.fire(self.cannon2.angle)
-                       
+                        if b==6: #and pushed:
+                            
+                            # linke schultertaste
+                            if number == 0:
+                                if pushed:
+                                    self.cannon1.delta_angle += 5
+                                #else:
+                                #    self.cannon1.delta_angle = 0
+                            if number == 1:
+                                if pushed:
+                                    self.cannon2.delta_angle += 5
+                                #else:
+                                #    self.cannon2.delta_angle = 0
+                            #Flytext(100,100, "button1")
+                        if b==7: #and pushed:
+                            if number == 0:
+                                if pushed:
+                                    self.cannon1.delta_angle -= 5
+                                #else:
+                                #    self.cannon1.delta_angle = 0
+                            if number == 1:
+                                if pushed:
+                                    self.cannon2.delta_angle -= 5
+                                #else:
+                                #    self.cannon2.delta_angle = 0
+                            # rechte Schultertaste
                         joldpushed[number][b] = jpushed[number][b]
                     #for a in range(axes):
                     #    axis = j.get_axis(a) 
@@ -1622,7 +1703,7 @@ class Viewer():
                         if h != 0:
                             continue 
                         hat = j.get_hat(h)
-                        print(j, h, str(hat), hat)
+                        #print(j, h, str(hat), hat)
                         for pnr, p in enumerate((self.player1, self.player2)):
                             if number == pnr:
                                 if hat[1] == 1:
@@ -1661,10 +1742,15 @@ class Viewer():
                          if t.tile_status == 2:
                              #healing tile
                             p.hitpoints += 1
-                            Viewer.sounds["playerhealing"].play()
+                            if self.playtime > self.playerhealingsoundtime:
+                                Viewer.sounds["playerhealing"].play()
+                                self.playerhealingsoundtime = self.playtime + 0.40
+                                
                          else:
                              p.hitpoints -= 1
-                             Viewer.sounds["hitground"].play()
+                             if self.playtime > self.groundhitsoundtime:
+                                Viewer.sounds["hitground"].play()
+                                self.groundhitsoundtime = self.playtime + 0.43
                              Explosion(t.pos, red=200, dred=50, minsparks=1, maxsparks=2)
                          
                          
@@ -1705,25 +1791,31 @@ class Viewer():
                                 # normal
                                 b1 = r.angle -45 + 180
                                 b2 = r.angle + 45 + 180
-                                Viewer.sounds["hitground"].play()
-                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=128, green=128, blue=128, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
+                                if self.playtime > self.groundhitsoundtime:
+                                    Viewer.sounds["hitground"].play()
+                                    self.groundhitsoundtime = self.playtime + 0.43
+                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=0, green=0, blue=0, dred=0, dgreen = 0, dblue = 0, minsparks=1, maxsparks=10)
                                 t.hitpoints -= r.damage
                             elif t.tile_status == 1:
                                 # golden
                                 b1 = r.angle -45 + 180
                                 b2 = r.angle + 45 + 180
-                                Viewer.sounds["hitground"].play()
-                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=255, green=165, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
+                                if self.playtime > self.groundhitsoundtime:
+                                    Viewer.sounds["hitground"].play()
+                                    self.groundhitsoundtime = self.playtime + 0.43
+                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=255, green=165, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=10)
                                 t.hitpoints -= r.damage
                                 if t.hitpoints <= 0:
                                     Game.gold += 1
                             else:
                                 # healing
-                                Viewer.sounds["playerhealing"].play()
+                                if self.playtime > self.playerhealingsoundtime:
+                                    Viewer.sounds["playerhealing"].play()
+                                    self.playerhealingsoundtime = self.playtime + 0.40
                                 VectorSprite.numbers[r.bossnumber].hitpoints += r.damage    
                                 b1 = r.angle -45 + 180
                                 b2 = r.angle + 45 + 180
-                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=0, green=255, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=2)
+                                Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=0, green=255, blue=0, dred=15, dgreen = 15, dblue = 15, minsparks=1, maxsparks=10)
                                 t.hitpoints -= r.damage
                         r.kill()
                 
@@ -1732,13 +1824,15 @@ class Viewer():
                     crashgroup = pygame.sprite.spritecollide(p, self.rocketgroup,
                                  False, pygame.sprite.collide_rect)
                     for r in crashgroup:
-                        if r.bossnumber != 0:
+                        if r.bossnumber != 0 and r.bossnumber != 1:
                             p.hitpoints -= r.damage
                             b1 = r.angle -45 + 180
                             b2 = r.angle + 45 + 180
-                            Viewer.sounds["playerdamage"].play()
+                            if self.playtime > self.playerdamagesoundtime:
+                                Viewer.sounds["playerdamage"].play()
+                                self.playerdamagesoundtime = self.playtime + 0.55
                             Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
-                        r.kill()
+                            r.kill()
                 
                 #------ between player and Refuel --------
                 for p in self.playergroup:
@@ -1770,11 +1864,13 @@ class Viewer():
                     crashgroup = pygame.sprite.spritecollide(e, self.rocketgroup,
                                  False, pygame.sprite.collide_rect)
                     for r in crashgroup:
-                        if r.bossnumber == 0:
+                        if r.bossnumber == 0 or r.bossnumber == 1:
                             e.hitpoints -= r.damage
                             b1 = r.angle -45 + 180
                             b2 = r.angle + 45 + 180
-                            Viewer.sounds["enemydamage"].play()
+                            if self.playtime > self.enemydamagesoundtime:
+                                Viewer.sounds["enemydamage"].play()
+                                self.enemydamagesoundtime = self.playtime + 0.25
                             Explosion(r.pos, a1=b1, a2=b2, max_age=0.3, red=200, dred=50, minsparks=1, maxsparks=2)
                         r.kill()
                 
